@@ -105,7 +105,12 @@ PRD是给不同读者看的，信息需要分层：
 这是PRD的核心章节之一。
 
 **主流程**：
-- 先用Mermaid画出主流程图（泳道图或流程图）
+- 根据复杂度选择格式：泳道图/复杂流程（>12节点）→ YAML → draw.io；简单流程 → Mermaid
+- 泳道图使用 YAML DSL 描述（规范见 `references/diagram-yaml-schema.md`），泳道横向排列为列，流程从上往下
+- 生成 `.diagram.yaml` 后，根据初始化时检测的 Python 环境决定是否转换：
+  - `python_available = true` → 调用 `python3 scripts/yaml2drawio.py` 转换为 `.drawio`
+  - `python_available = false` → 仅保留 `.diagram.yaml` 源文件，或按用户选择回退到 Mermaid（参见 SKILL.md 3.2 节降级处理）
+- 可选在 PRD 中嵌入简化 Mermaid 版本用于文档内预览
 - 再逐步骤文字说明
 - 每个步骤需说明：触发条件、操作主体、处理逻辑、输出物
 
@@ -235,7 +240,9 @@ graph LR
 > - **仅Word**：仅生成Word版本，适合正式交付
 
 其他要求：
-1. 所有流程图同时保存为独立的 .mermaid 文件到 diagrams/ 目录
+1. 所有流程图保存为独立文件到 diagrams/ 目录：
+   - Mermaid 图表 → `.mermaid` 文件
+   - 泳道图/复杂流程 → `.diagram.yaml` 文件 + 转换生成的 `.drawio` 文件
 2. Word版本使用 docx 技能生成，确保专业排版
 
 ---

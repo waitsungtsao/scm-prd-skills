@@ -94,9 +94,13 @@ reviewers: []
 
 {流程文字概述}
 
+> 完整泳道图见: diagrams/main-flow.drawio（YAML 源文件: diagrams/main-flow.diagram.yaml）
+
+{可选：嵌入简化 Mermaid 版本用于文档内预览}
+
 ```mermaid
 graph TD
-    %% 主流程图
+    %% 简化版主流程图（完整泳道图见 .drawio 文件）
 ```
 
 **流程步骤说明**：

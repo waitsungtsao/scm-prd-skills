@@ -80,7 +80,10 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
    - 如有与本次需求相关的知识卡片，主动读取作为背景
 2. 确认需求工作目录：`requirements/REQ-{日期}-{需求简称}/`
 3. 检查是否有未完成的需求（存在intake.md但没有PRD），询问是否继续
-4. 进入默认工作模式（自主模式），展示开场提示
+4. **检测 Python 环境**：运行 `python3 -c "import yaml; print('ok')"` 检测 Python 3 + PyYAML 是否可用
+   - 可用 → 记录 `python_available = true`，后续泳道图/复杂流程可使用 YAML → draw.io 转换
+   - 不可用 → 记录 `python_available = false`，后续泳道图仅输出 `.diagram.yaml` 源文件（不转换为 `.drawio`），并在首次需要生成泳道图时提示用户（见 3.2 节）
+5. 进入默认工作模式（自主模式），展示开场提示
 
 ---
 
@@ -211,12 +214,13 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 
 **目标**：基于Phase 1-2的成果，产出完整的PRD文档和流程图。
 
-**产出**：`PRD-{名称}.md` + `PRD-{名称}.docx` + `diagrams/*.mermaid`
+**产出**：`PRD-{名称}.md` + `PRD-{名称}.docx` + `diagrams/*.mermaid` + `diagrams/*.diagram.yaml` + `diagrams/*.drawio`
 
 ### 操作流程
 
 读取 `references/phase3-write.md` 获取PRD各章节的撰写指引（含 `[建议]` 批量处理和输出格式选项化交互规范）。
 读取 `references/diagram-patterns.md` 获取流程图绘制规范。
+读取 `references/diagram-yaml-schema.md` 获取 YAML 图表 DSL 规范（泳道图和复杂流程使用）。
 
 #### 3.1 PRD结构
 
@@ -240,15 +244,41 @@ PRD正文必须包含以下章节（读取 `templates/prd-template.md` 获取完
 
 #### 3.2 流程图绘制
 
-所有流程图使用Mermaid语法，同时保存为独立 `.mermaid` 文件。
+根据图表类型选择合适的格式：
 
-需要产出的流程图类型：
-- **业务泳道图**：跨角色/跨系统的协作流程
-- **状态流转图**：关键实体的状态机
-- **数据流向图**：系统间的数据流
-- **时序图**（按需）：复杂交互的时序逻辑
+| 图表类型 | 推荐格式 | 文件类型 |
+|---------|---------|---------|
+| **业务泳道图**（跨角色/跨系统协作） | YAML → draw.io | `.diagram.yaml` + `.drawio` |
+| **复杂流程图**（>12节点+交叉连线） | YAML → draw.io | `.diagram.yaml` + `.drawio` |
+| **状态流转图** | Mermaid | `.mermaid` |
+| **时序图** | Mermaid | `.mermaid` |
+| **数据流向图** | Mermaid | `.mermaid` |
+| **简单流程**（≤12节点） | Mermaid | `.mermaid` |
 
-读取 `references/diagram-patterns.md` 获取各类图的绘制模式。
+**YAML → draw.io 流程**：
+1. 按 `references/diagram-yaml-schema.md` 规范生成 `.diagram.yaml` 文件
+2. 调用 `python3 scripts/yaml2drawio.py <file.diagram.yaml>` 转换为 `.drawio`
+3. 可选：在 PRD 文档中嵌入简化的 Mermaid 版本用于文档内预览
+
+**泳道图布局约定**：
+- 泳道**横向排列**（每条泳道是一列），流程从上往下
+- 泳道之间有独立边框形成清晰的列分隔
+- `lanes` 列表的顺序即为从左到右的列顺序
+
+**Python 不可用时的降级处理**：
+
+当初始化时检测到 `python_available = false`，首次需要生成泳道图时使用 `AskUserQuestion` 提示用户：
+
+> header: "图表工具"
+> 问题: "泳道图需要 Python 3 + PyYAML 来转换为 draw.io 格式，当前环境未检测到。如何处理？"
+> 选项：
+> - **安装依赖**：我来安装 Python 和 PyYAML（会执行 `pip3 install pyyaml`）
+> - **仅保留 YAML 源文件**：生成 `.diagram.yaml` 但不转换，后续可手动转换
+> - **改用 Mermaid**：本次泳道图回退到 Mermaid subgraph 方案
+
+选择"安装依赖"后尝试执行 `pip3 install pyyaml`，成功则更新 `python_available = true` 并继续转换。
+
+读取 `references/diagram-patterns.md` 获取各类图的绘制模式和 YAML 示例。
 
 #### 3.3 撰写原则
 
@@ -384,7 +414,7 @@ AI完成PRD后，自主执行以下检查：
 **生成顺序**：
 1. 整理信息 → 输出 `intake.md`
 2. AI自主推导假设 → 输出 `clarification.md`（标记假设依据）
-3. 读取 `references/phase3-write.md` 和 `references/diagram-patterns.md`，撰写15章PRD → 输出 `PRD-{名称}.md` + 流程图
+3. 读取 `references/phase3-write.md`、`references/diagram-patterns.md` 和 `references/diagram-yaml-schema.md`，撰写15章PRD → 输出 `PRD-{名称}.md` + 流程图（泳道图/复杂流程用 YAML → draw.io，状态图/时序图/数据流用 Mermaid）
 4. 读取 `references/phase4-review.md`，自动执行自检（含CK-8假设质量检查）→ 输出 `review-report.md`
 
 **内容决策**：使用三级标记体系（见下方"标记体系"章节），区分已确认事实、专业推断和待确认假设。

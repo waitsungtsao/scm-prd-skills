@@ -47,6 +47,20 @@
 
 两种模式可随时切换，切换时保留已有产出文件。
 
+#### 流程图绘制
+
+PRD 中的流程图根据类型和复杂度选择格式：
+
+| 图表类型 | 格式 | 说明 |
+|---------|------|------|
+| 泳道图（跨角色/跨系统协作） | **YAML → draw.io** | 泳道横向排列为列，流程从上往下，列间有清晰分隔 |
+| 复杂流程（>12 节点） | **YAML → draw.io** | 精确布局，避免交叉混乱 |
+| 状态流转图 | Mermaid | `stateDiagram-v2` |
+| 时序图 | Mermaid | `sequenceDiagram` |
+| 数据流向图 / 简单流程 | Mermaid | `graph LR` / `graph TD` |
+
+YAML → draw.io 转换依赖 Python 3 + PyYAML。技能启动时会自动检测环境，不可用时引导用户安装依赖、仅保留 YAML 源文件或回退 Mermaid。
+
 - **触发方式**：描述 PRD 需求，如"帮我写一个 PRD"、"快速出一份 PRD"、"这个需求要怎么设计"
 - **产出**：`requirements/REQ-{日期}-{简称}/` 目录下的完整文档集
 - **适用场景**：OMS、WMS、TMS、BMS、数据看板等供应链系统的需求文档编写
@@ -112,7 +126,9 @@ my-project/
         ├── PRD-退货流程.docx       # Word 版本
         ├── review-report.md       # 自检报告
         └── diagrams/              # 流程图
-            └── *.mermaid
+            ├── *.mermaid          # Mermaid（状态图/时序图/数据流/简单流程）
+            ├── *.diagram.yaml     # YAML 泳道图源文件
+            └── *.drawio           # draw.io 文件（由脚本从 YAML 转换）
 ```
 
 ### 知识管家
@@ -157,13 +173,16 @@ scm-prd-skills/
     │   ├── phase3-write.md            #   Phase 3 指引
     │   ├── phase4-review.md           #   Phase 4 指引
     │   ├── autonomous-mode.md         #   自主模式操作指引
-    │   └── diagram-patterns.md        #   流程图绘制规范
+    │   ├── diagram-patterns.md        #   流程图绘制规范
+    │   └── diagram-yaml-schema.md     #   YAML 图表 DSL 规范
     ├── templates/                     # 输出模板
     │   ├── prd-template.md            #   PRD 模板
     │   ├── requirement-brief.md       #   需求摘要模板
-    │   └── autonomous-intake-brief.md #   自主模式录入模板
+    │   ├── autonomous-intake-brief.md #   自主模式录入模板
+    │   └── drawio-swimlane-template.xml # draw.io 泳道图参考模板
     └── scripts/
-        └── init_workspace.sh          # 工作区初始化脚本
+        ├── init_workspace.sh          # 工作区初始化脚本
+        └── yaml2drawio.py             # YAML → draw.io 转换脚本
 ```
 
 运行时产出（`knowledge-base/`、`requirements/`）由 `.gitignore` 排除，不纳入版本管理。

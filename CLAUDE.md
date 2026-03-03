@@ -26,7 +26,7 @@ The skills share context within a single conversation but are intentionally sepa
 ## Runtime Outputs (gitignored)
 
 - `knowledge-base/` — knowledge cards, `_index.md`, `glossary.yaml`
-- `requirements/` — per-requirement folders with `intake.md`, `clarification.md`, `PRD-*.md`, `review-report.md`, `diagrams/*.mermaid`
+- `requirements/` — per-requirement folders with `intake.md`, `clarification.md`, `PRD-*.md`, `review-report.md`, `diagrams/*.mermaid`, `diagrams/*.diagram.yaml`, `diagrams/*.drawio`
 - `.scm-prd-config.yaml` — optional project-level config
 
 ## Core Design Principles (enforced across both skills)
@@ -41,6 +41,6 @@ The skills share context within a single conversation but are intentionally sepa
 
 - Knowledge card files use `domain-{abbrev}.md` naming (lowercase, hyphen-separated, no Chinese filenames)
 - Quality annotations: `[待确认]` (unconfirmed), `[推测]` (inferred), `[过时?]` (possibly outdated), `[矛盾]` (contradictory)
-- All flowcharts use Mermaid syntax, saved as standalone `.mermaid` files; max ~20 nodes per diagram
+- Diagrams use dual formats: Mermaid (`.mermaid`) for state diagrams, sequence diagrams, data flows, and simple flows; YAML DSL → draw.io (`.diagram.yaml` + `.drawio`) for swimlane diagrams and complex flows (>12 nodes). Max ~20 nodes per diagram
 - PRD documents require dual-format output (Markdown + Word) unless the user opts out
 - The primary language for all skill content and outputs is **Chinese (Simplified)**; file names and code identifiers use English

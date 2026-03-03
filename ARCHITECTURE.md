@@ -72,9 +72,13 @@
 │   │   ├── PRD-订单拆单优化.docx  # Phase 3 产出：Word版本
 │   │   ├── review-report.md       # Phase 4 产出：自检报告
 │   │   └── diagrams/
-│   │       ├── main-flow.mermaid
-│   │       ├── swimlane.mermaid
-│   │       └── state-machine.mermaid
+│   │       ├── main-flow.diagram.yaml   # YAML 泳道图源文件
+│   │       ├── main-flow.drawio         # draw.io 文件（由 yaml2drawio.py 生成）
+│   │       ├── swimlane.diagram.yaml    # YAML 泳道图源文件
+│   │       ├── swimlane.drawio          # draw.io 文件（由 yaml2drawio.py 生成）
+│   │       ├── state-machine.mermaid    # Mermaid 状态图
+│   │       ├── sequence.mermaid         # Mermaid 时序图
+│   │       └── data-flow.mermaid        # Mermaid 数据流图
 │   └── ...
 │
 └── .scm-prd-config.yaml          # 项目级配置（可选）

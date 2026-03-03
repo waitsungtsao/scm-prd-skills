@@ -56,6 +56,10 @@ else
     mkdir -p "${REQ_DIR}/diagrams"
     echo "✓ 创建需求目录: ${REQ_DIR}/"
     echo "✓ 创建图表目录: ${REQ_DIR}/diagrams/"
+    # diagrams/ 目录支持三种文件类型：
+    #   .mermaid       — Mermaid 图表（状态图、时序图、数据流、简单流程）
+    #   .diagram.yaml  — YAML 图表 DSL 源文件（泳道图、复杂流程）
+    #   .drawio        — draw.io XML 文件（由 yaml2drawio.py 从 .diagram.yaml 转换生成）
 fi
 
 # 创建配置文件（如不存在）
