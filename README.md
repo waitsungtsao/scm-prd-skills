@@ -29,22 +29,88 @@
 
 ## 安装
 
-将技能目录添加到你的 Claude Code 项目中：
+### 推荐方式：全局安装（适用于所有项目）
+
+从 GitHub 克隆仓库到本地固定位置，然后通过符号链接注册为全局技能：
+
+```bash
+# 1. 克隆仓库到本地（选择一个固定位置）
+git clone git@github.com:waitsungtsao/scm-prd-skills.git ~/scm-prd-skills
+
+# 2. 创建全局技能目录
+mkdir -p ~/.claude/skills
+
+# 3. 链接技能到全局目录
+ln -s ~/scm-prd-skills/scm-knowledge-curator ~/.claude/skills/scm-knowledge-curator
+ln -s ~/scm-prd-skills/scm-prd-workflow ~/.claude/skills/scm-prd-workflow
+```
+
+全局安装后，在任意目录启动 Claude Code 均可使用这两个技能，无需逐项目配置。更新时只需 `cd ~/scm-prd-skills && git pull`。
+
+### 备选方式：项目级安装（适用于团队共享或项目隔离）
+
+将技能安装到单个项目的 `.claude/skills/` 目录中，仅在该项目内可用：
 
 ```bash
 # 在你的项目根目录下
 mkdir -p .claude/skills
 
-# 方式一：复制技能目录
-cp -r path/to/scm-prd-skills/scm-knowledge-curator .claude/skills/
-cp -r path/to/scm-prd-skills/scm-prd-workflow .claude/skills/
-
-# 方式二：使用符号链接（推荐，便于更新）
-ln -s path/to/scm-prd-skills/scm-knowledge-curator .claude/skills/scm-knowledge-curator
-ln -s path/to/scm-prd-skills/scm-prd-workflow .claude/skills/scm-prd-workflow
+ln -s /path/to/scm-prd-skills/scm-knowledge-curator .claude/skills/scm-knowledge-curator
+ln -s /path/to/scm-prd-skills/scm-prd-workflow .claude/skills/scm-prd-workflow
 ```
 
-安装后在 Claude Code 中描述相关意图即可自动触发对应技能。
+## 使用方式
+
+安装完成后，在工作目录中启动 Claude Code，描述相关意图即可自动触发对应技能。
+
+### PRD 工作台
+
+```bash
+# 1. 新建或进入你的项目工作目录
+mkdir my-project && cd my-project
+
+# 2. 启动 Claude Code
+claude
+
+# 3. 直接描述需求，技能自动触发
+#    例如："帮我写一个 OMS 退货流程的 PRD"
+```
+
+产出文件生成在当前工作目录下：
+
+```
+my-project/
+└── requirements/
+    └── REQ-20260303-退货流程/
+        ├── intake.md              # 需求录入
+        ├── clarification.md       # 需求澄清
+        ├── PRD-退货流程.md         # PRD 文档
+        ├── PRD-退货流程.docx       # Word 版本
+        ├── review-report.md       # 自检报告
+        └── diagrams/              # 流程图
+            └── *.mermaid
+```
+
+### 知识管家
+
+```bash
+# 同样在工作目录中启动 Claude Code
+cd my-project
+claude
+
+# 描述知识梳理意图
+# 例如："帮我梳理一下 WMS 入库业务"
+```
+
+产出文件生成在当前工作目录下：
+
+```
+my-project/
+└── knowledge-base/
+    ├── _index.md                  # 知识索引
+    ├── glossary.yaml              # 术语表
+    └── domain-wms-inbound.md      # 知识卡片
+```
 
 ## 项目结构
 
