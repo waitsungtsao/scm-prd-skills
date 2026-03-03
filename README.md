@@ -14,7 +14,29 @@
 
 ### 2. scm-prd-workflow（PRD 工作台）
 
-从需求到 PRD 的四阶段全流程生产线。
+从需求到 PRD 的全流程生产线，支持两种工作模式。
+
+#### 自主模式（默认）
+
+提供需求背景后，AI 一次性生成完整 PRD，用户集中审阅修改。适合快速出初稿。
+
+| 阶段 | 名称 | 核心动作 |
+|------|------|---------|
+| Stage A | 压缩录入 | 1-2 轮对话收集关键信息 |
+| Stage B | 自主生成 | 一次性生成 `intake.md` + `clarification.md` + `PRD` + `review-report.md` |
+| Stage C | 审阅迭代 | 用户审阅假设总览表，批量确认/修改，AI 迭代更新 |
+
+自主模式使用三级标记体系区分 AI 生成内容的确认程度：
+
+| 标记 | 含义 | 审阅方式 |
+|------|------|---------|
+| （无标记） | 已确认事实 | 无需处理 |
+| `[推断]` | 行业标准做法、专业推断 | 无异议则默认确认 |
+| `[待确认]` | 需用户决策的业务问题 | 必须明确确认或修改 |
+
+#### 交互模式
+
+逐阶段 Q&A 确认，适合高精度需求、需要逐步把关的场景。随时说"切换到交互模式"即可进入。
 
 | 阶段 | 名称 | 产出 |
 |------|------|------|
@@ -23,7 +45,9 @@
 | Phase 3 | 方案输出 | `PRD-{名称}.md` / `.docx` |
 | Phase 4 | 自检审查 | `review-report.md` |
 
-- **触发方式**：描述 PRD 需求，如"帮我写一个 PRD"、"这个需求要怎么设计"
+两种模式可随时切换，切换时保留已有产出文件。
+
+- **触发方式**：描述 PRD 需求，如"帮我写一个 PRD"、"快速出一份 PRD"、"这个需求要怎么设计"
 - **产出**：`requirements/REQ-{日期}-{简称}/` 目录下的完整文档集
 - **适用场景**：OMS、WMS、TMS、BMS、数据看板等供应链系统的需求文档编写
 
@@ -132,10 +156,12 @@ scm-prd-skills/
     │   ├── phase2-clarify.md          #   Phase 2 指引
     │   ├── phase3-write.md            #   Phase 3 指引
     │   ├── phase4-review.md           #   Phase 4 指引
+    │   ├── autonomous-mode.md         #   自主模式操作指引
     │   └── diagram-patterns.md        #   流程图绘制规范
     ├── templates/                     # 输出模板
     │   ├── prd-template.md            #   PRD 模板
-    │   └── requirement-brief.md       #   需求摘要模板
+    │   ├── requirement-brief.md       #   需求摘要模板
+    │   └── autonomous-intake-brief.md #   自主模式录入模板
     └── scripts/
         └── init_workspace.sh          # 工作区初始化脚本
 ```
