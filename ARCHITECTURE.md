@@ -10,19 +10,19 @@
 │  │ Skill 1              │     │ Skill 2                          │  │
 │  │ scm-knowledge-curator│     │ scm-prd-workflow                 │  │
 │  │                      │     │                                  │  │
-│  │ 输入：业务文档/口述  │     │ Phase 1: 需求录入                │  │
-│  │ 输出：知识库文件集   │────▶│ Phase 2: 需求澄清               │  │
-│  │                      │     │ Phase 3: PRD输出                 │  │
-│  │ 触发：周期性/按需    │     │ Phase 4: 自检 + 用户审查         │  │
+│  │ 输入：业务文档/口述  │     │ 三种模式:                        │  │
+│  │ 输出：知识库文件集   │────▶│ · 交互 Phase 1-4 (逐步确认)     │  │
+│  │                      │     │ · 自主 Stage A-C (先生成后审)    │  │
+│  │ 触发：周期性/按需    │     │ · 轻量 Stage L1-L3 (快进快出)   │  │
 │  └──────────────────────┘     └──────────────────────────────────┘  │
 │         │                              │                            │
 │         ▼                              ▼                            │
 │  knowledge-base/               requirements/REQ-XXX/               │
-│  ├── _index.md                 ├── intake.md                       │
-│  ├── domain-oms.md             ├── clarification.md                │
-│  ├── domain-wms.md             ├── PRD-XXX.md / .docx             │
-│  ├── domain-tms.md             ├── review-report.md                │
-│  └── ...                       └── diagrams/                       │
+│  ├── _index.md                 ├── intake.md        (自主/交互模式) │
+│  ├── domain-oms.md             ├── clarification.md (自主/交互模式) │
+│  ├── domain-wms.md             ├── PRD-XXX.md / .docx (全模式)    │
+│  ├── domain-tms.md             ├── review-report.md (自主/交互模式) │
+│  └── ...                       └── diagrams/        (全模式)       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -45,10 +45,13 @@
 - 产出：结构化的知识库文件集合
 
 **Skill 2: scm-prd-workflow（PRD工作台）**
-- 定位：从需求到PRD的全流程生产线
+- 定位：从需求到PRD的全流程生产线，支持三种模式
+  - **自主模式**（默认）：15章完整PRD，2-3轮对话
+  - **交互模式**：15章完整PRD，逐步确认
+  - **轻量模式**：7章精简PRD，0-1轮对话，适合简单需求/常规改动
 - 触发时机：每次有新需求需要产出PRD时
 - 输入：用户需求描述 + 知识库文件（如有）
-- 产出：完整PRD文档 + 流程图 + 自检报告
+- 产出：完整/精简PRD文档 + 流程图 + 自检报告（轻量模式仅PRD + 可选图）
 
 ## 3. 工作空间约定
 
@@ -65,20 +68,20 @@
 │   └── glossary.yaml              # 术语表（YAML格式）
 │
 ├── requirements/                  # 需求文件夹（Skill 2 产出）
-│   ├── REQ-20250301-订单拆单优化/
-│   │   ├── intake.md              # Phase 1 产出：需求摘要
-│   │   ├── clarification.md       # Phase 2 产出：澄清记录
-│   │   ├── PRD-订单拆单优化.md    # Phase 3 产出：PRD正文
-│   │   ├── PRD-订单拆单优化.docx  # Phase 3 产出：Word版本
-│   │   ├── review-report.md       # Phase 4 产出：自检报告
+│   ├── REQ-20250301-订单拆单优化/         # 自主/交互模式：完整文件集
+│   │   ├── intake.md              # Phase 1 / Stage A 产出（轻量模式不生成）
+│   │   ├── clarification.md       # Phase 2 / Stage B 产出（轻量模式不生成）
+│   │   ├── PRD-订单拆单优化.md    # Phase 3 产出：PRD正文（全模式）
+│   │   ├── PRD-订单拆单优化.docx  # Phase 3 产出：Word版本（轻量模式不生成）
+│   │   ├── review-report.md       # Phase 4 产出：自检报告（轻量模式不生成）
 │   │   └── diagrams/
-│   │       ├── main-flow.diagram.yaml   # YAML 泳道图源文件
-│   │       ├── main-flow.drawio         # draw.io 文件（由 yaml2drawio.py 生成）
-│   │       ├── swimlane.diagram.yaml    # YAML 泳道图源文件
-│   │       ├── swimlane.drawio          # draw.io 文件（由 yaml2drawio.py 生成）
-│   │       ├── state-machine.mermaid    # Mermaid 状态图
-│   │       ├── sequence.mermaid         # Mermaid 时序图
-│   │       └── data-flow.mermaid        # Mermaid 数据流图
+│   │       ├── main-flow.diagram.yaml   # YAML 泳道图源文件（轻量模式不使用）
+│   │       ├── main-flow.drawio         # draw.io 文件（轻量模式不使用）
+│   │       ├── swimlane.diagram.yaml    # YAML 泳道图源文件（轻量模式不使用）
+│   │       ├── swimlane.drawio          # draw.io 文件（轻量模式不使用）
+│   │       ├── state-machine.mermaid    # Mermaid 状态图（全模式）
+│   │       ├── sequence.mermaid         # Mermaid 时序图（全模式）
+│   │       └── data-flow.mermaid        # Mermaid 数据流图（全模式）
 │   └── ...
 │
 └── .scm-prd-config.yaml          # 项目级配置（可选）

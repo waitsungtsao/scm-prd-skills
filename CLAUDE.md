@@ -12,15 +12,15 @@ Versioning follows CalVer (`YYYY.MM.PATCH`), e.g. `v2026.03.0`.
 
 **Skill 1 — `scm-knowledge-curator`** (knowledge producer): Conducts structured "journalist-style" interviews to capture business knowledge into `knowledge-base/` as domain cards, glossary, and an index.
 
-**Skill 2 — `scm-prd-workflow`** (knowledge consumer): 4-phase PRD pipeline (Intake → Clarify → Write → Review) that reads from the knowledge base and outputs complete requirement packages under `requirements/REQ-{date}-{name}/`.
+**Skill 2 — `scm-prd-workflow`** (knowledge consumer): PRD production pipeline with three modes — Interactive (Phase 1-4), Autonomous (Stage A-C), and Lite (Stage L1-L3). Reads from the knowledge base and outputs requirement packages under `requirements/REQ-{date}-{name}/`.
 
 The skills share context within a single conversation but are intentionally separate so knowledge curation and PRD production can evolve independently. Phase state is passed via standardized Markdown files with YAML front matter.
 
 ## Key File Roles
 
 - `SKILL.md` in each skill directory is the **skill definition** — the system prompt Claude uses when the skill is triggered. Changes here directly affect skill behavior.
-- `references/` files are **operational guides** read by the skill at runtime (interview framework, phase instructions, diagram patterns).
-- `templates/` files are **output templates** the skill fills in when generating artifacts.
+- `references/` files are **operational guides** read by the skill at runtime (interview framework, phase instructions, diagram patterns, lite-mode instructions).
+- `templates/` files are **output templates** the skill fills in when generating artifacts (full 15-chapter PRD template and lite 7-chapter PRD template).
 - `scm-prd-workflow/scripts/init_workspace.sh` bootstraps workspace directories and config.
 
 ## Runtime Outputs (gitignored)
@@ -42,5 +42,5 @@ The skills share context within a single conversation but are intentionally sepa
 - Knowledge card files use `domain-{abbrev}.md` naming (lowercase, hyphen-separated, no Chinese filenames)
 - Quality annotations: `[待确认]` (unconfirmed), `[推测]` (inferred), `[过时?]` (possibly outdated), `[矛盾]` (contradictory)
 - Diagrams use dual formats: Mermaid (`.mermaid`) for state diagrams, sequence diagrams, data flows, and simple flows; YAML DSL → draw.io (`.diagram.yaml` + `.drawio`) for swimlane diagrams and complex flows (>12 nodes). Max ~20 nodes per diagram
-- PRD documents require dual-format output (Markdown + Word) unless the user opts out
+- PRD documents in Interactive/Autonomous modes require dual-format output (Markdown + Word) unless the user opts out; Lite mode outputs Markdown only by default
 - The primary language for all skill content and outputs is **Chinese (Simplified)**; file names and code identifiers use English
