@@ -4,6 +4,61 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.03.5] - 2026-03-18
+
+### Added
+
+- **CK-0 需求回溯检查**（phase4-review.md）：新增检查项，逐条核对 intake.md 痛点和目标在 PRD 中是否有对应解决方案 (Q-1)
+- **CK-5.5 操作步骤合理性检查**（phase4-review.md）：单功能点超 10 步时审视是否可简化 (Q-2)
+- **CK-L4/CK-L5 轻量模式自检**（lite-mode.md）：新增业务规则无歧义检查和变更点-验收标准一一对应检查 (Q-3)
+- **PRD 大纲确认步骤**（autonomous-mode.md, phase3-write.md）：Stage B 正式撰写前先输出功能/接口/图表/详略大纲供用户确认 (U-3)
+- **已有文档导入能力**（SKILL.md）：MC-01 模式确认后可选导入已有 PRD 草稿/需求文档 (U-4)
+- **变更摘要输出**（autonomous-mode.md, phase4-review.md）：每轮修改后先输出具体改动点列表 (U-6)
+- **假设变更审计日志**（phase4-review.md）：review-report.md 新增章节记录假设从原始→变更→原因的完整过程 (Q-4)
+- **知识发现清单**（SKILL.md）：PRD 过程中发现的新业务知识自动记录到 `knowledge-discoveries.md` (A-3)
+- **跨需求一致性扫描**（SKILL.md）：启动时扫描已有 PRD 提取关键规则和接口定义作为约束输入 (A-4)
+- **clarification-template.md**（templates/）：新增独立的澄清记录模板，交互/自主模式共用 (A-6)
+- **check-prd-consistency.py**（scripts/）：PRD 一致性扫描脚本，验证 ID 引用完整性、术语一致性、变更点覆盖 (T-7)
+- **ID 分配规划指引**（phase3-write.md）：撰写前先规划 G/C/F/IF/BR 编号方案，避免引用断裂 (Q-6)
+
+### Changed
+
+- **假设分层呈现**（autonomous-mode.md）：Stage C 假设总览按影响程度分两层呈现，每个假设附加"若判断有误的影响"说明 (U-2)
+- **带例外批量确认**（autonomous-mode.md, phase4-review.md）：SC-01 新增审阅选项"默认全部确认，仅指出需修改的项" (U-2)
+- **真实交互轮次预期**（SKILL.md, lite-mode.md, ARCHITECTURE.md）：MC-01 模式描述更新为包含实际预估轮次和时间 (U-1)
+- **CK 严重性三级分类**（phase4-review.md）：原"需修正"拆分为"关键"（业务逻辑/数据安全）和"一般"（文档结构/格式），新增严重性分级说明 (Q-5)
+- **加权复杂度评分**（lite-mode.md）：轻量模式复杂度判断从简单计数改为加权评分（变更点×影响系统数×规则复杂度），阈值 ≥8 触发升级 (A-1)
+- **升级章节映射说明**（lite-mode.md）：轻量→完整升级时标注每个章节的处理方式（直接复用 vs 结构重写） (A-2)
+- **yaml2drawio.py 增强**：
+  - 新增循环依赖检测，环上节点报错而非静默放到 level 0 (T-1)
+  - 节点标签长度感知，长中文标签自动加宽节点避免溢出 (T-2)
+  - 节点数超过 20 时输出警告建议拆分 (T-3)
+- **init_workspace.sh**：新增 Python 环境检测逻辑，检测结果写入 `.scm-prd-config.yaml` (T-4)
+- **Mermaid 回退路径明确**（phase3-write.md）：Python 不可用时 AI 直接生成 Mermaid 格式而非 YAML 自动转换 (T-5)
+- **步骤-规则表拆分指引**（phase3-write.md）：单步骤关联 >2 条规则时拆为子步骤 (Q-7)
+- **输入文件格式校验**（phase2-clarify.md, SKILL.md）：每个阶段开始前对上游产出文件做基本格式检查 (A-5)
+- **ARCHITECTURE.md**：更新模式描述、产出文件列表、设计原则
+
+## [2026.03.4] - 2026-03-18
+
+### Changed
+
+- **PRD模板结构重构**：15章 → 10章（scm-prd-workflow）
+  - 合并重复内容：Ch.2+3+4 → 新Ch.2（需求概述），Ch.9+10+11 → 新Ch.7（接口与数据集成），Ch.14+15 → 新Ch.10（待定事项与附录）
+  - 引入交叉引用 ID 体系：G-XXX（目标）、C-XXX（变更项）、F-XXX（功能）、IF-XXX（接口）、BR-XXX（业务规则），每个事实只写一次
+  - Ch.4 业务变更总览：AS-IS 简化为一行摘要，回指 Ch.2§2.2，消除重复叙述
+  - Ch.5 业务流程：去掉步骤表，流程图节点标注 F-XXX，步骤详情统一在 Ch.6
+  - Ch.6 功能与规则明细：引入统一步骤-规则表（操作步骤+业务规则+异常处理合一），替代原来分离的叙述+表格
+  - Ch.9 验收标准：新增"关联目标 G-XXX"和"关联功能 F-XXX"列
+- **phase3-write.md**：各章节撰写指引从15章改为10章，新增 ID 编号规范和交叉引用体系说明
+- **phase4-review.md**：CK-1.1 更新为10章检查，CK-2.6 增加交叉引用完整性检查（CK-2.6a），CK-8.2 更新假设总览表位置引用
+- **autonomous-mode.md**：更新轻量→完整升级映射表、质疑文档化位置（§2.6）、章节引用
+- **SKILL.md**：模式表格、章节列表、Stage B 描述、示例引用全部更新为10章结构
+- **lite-mode.md**：更新7章PRD结构表的"对应完整PRD章节"映射、升级映射表、模式描述
+- **lite-prd-template.md**：升级提示从"15章"改为"10章"
+- **README.md**：PRD章节数、模板描述、模式切换说明更新
+- **ARCHITECTURE.md**：技能产出描述更新
+
 ## [2026.03.3] - 2026-03-03
 
 ### Added

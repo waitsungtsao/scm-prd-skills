@@ -20,13 +20,15 @@ The skills share context within a single conversation but are intentionally sepa
 
 - `SKILL.md` in each skill directory is the **skill definition** — the system prompt Claude uses when the skill is triggered. Changes here directly affect skill behavior.
 - `references/` files are **operational guides** read by the skill at runtime (interview framework, phase instructions, diagram patterns, lite-mode instructions).
-- `templates/` files are **output templates** the skill fills in when generating artifacts (full 15-chapter PRD template and lite 7-chapter PRD template).
-- `scm-prd-workflow/scripts/init_workspace.sh` bootstraps workspace directories and config.
+- `templates/` files are **output templates** the skill fills in when generating artifacts (full 10-chapter PRD template and lite 7-chapter PRD template).
+- `scm-prd-workflow/scripts/init_workspace.sh` bootstraps workspace directories, detects Python environment, and writes config.
+- `scm-prd-workflow/scripts/check-prd-consistency.py` validates PRD cross-reference IDs, terminology consistency, and change coverage.
+- `scm-prd-workflow/scripts/yaml2drawio.py` converts YAML diagram DSL to draw.io XML with cycle detection, label overflow handling, and node count warnings.
 
 ## Runtime Outputs (gitignored)
 
 - `knowledge-base/` — knowledge cards, `_index.md`, `glossary.yaml`
-- `requirements/` — per-requirement folders with `intake.md`, `clarification.md`, `PRD-*.md`, `review-report.md`, `diagrams/*.mermaid`, `diagrams/*.diagram.yaml`, `diagrams/*.drawio`
+- `requirements/` — per-requirement folders with `intake.md`, `clarification.md`, `PRD-*.md`, `review-report.md`, `knowledge-discoveries.md`, `diagrams/*.mermaid`, `diagrams/*.diagram.yaml`, `diagrams/*.drawio`
 - `.scm-prd-config.yaml` — optional project-level config
 
 ## Core Design Principles (enforced across both skills)
@@ -35,7 +37,8 @@ The skills share context within a single conversation but are intentionally sepa
 2. **Challenge first** — question unreasonable requirements rather than complying
 3. **Evidence-driven** — cite sources for recommendations; label web-sourced practices
 4. **Authorized writes only** — AI suggestions must be marked `[建议]` and approved before entering PRD text
-5. **Incremental capture** — new business knowledge discovered during PRD work should be flagged for addition to the knowledge base
+5. **Incremental capture** — new business knowledge discovered during PRD work is recorded to `knowledge-discoveries.md` and can be imported to the knowledge base at delivery
+6. **Cross-requirement consistency** — when starting a new requirement, scan existing PRDs for conflicting rules and interface definitions
 
 ## Conventions
 

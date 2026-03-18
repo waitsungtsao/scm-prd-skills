@@ -6,7 +6,7 @@ yaml2drawio.py — 将 YAML 图表 DSL 转换为 draw.io XML 文件
 普通流程图布局：节点从左到右按拓扑排列。
 
 用法:
-    python3 yaml2drawio.py <input.diagram.yaml> [output.drawio]
+    python yaml2drawio.py <input.diagram.yaml> [output.drawio]
 
 依赖: PyYAML (pip install pyyaml)
 兼容: Python 3.8+
@@ -47,7 +47,7 @@ STYLE_COLORS = {
 # 节点尺寸
 # =============================================================================
 
-NODE_SIZES = {
+DEFAULT_NODE_SIZES = {
     'process':    (120, 60),
     'decision':   (100, 60),
     'start':      (60, 60),
@@ -56,6 +56,36 @@ NODE_SIZES = {
     'database':   (120, 60),
     'document':   (120, 60),
 }
+
+# 每个中文字符约 14px 宽（12pt 字体），英文约 7px
+CHAR_WIDTH_CJK = 14
+CHAR_WIDTH_ASCII = 7
+NODE_PADDING = 20  # 节点内边距（左右各 10px）
+
+
+def _estimate_label_width(label):
+    """估算标签渲染宽度（px）。"""
+    width = 0
+    for ch in label:
+        if ord(ch) > 127:
+            width += CHAR_WIDTH_CJK
+        else:
+            width += CHAR_WIDTH_ASCII
+    return width + NODE_PADDING
+
+
+def get_node_size(node):
+    """根据节点类型和标签长度计算节点尺寸，长标签自动加宽。"""
+    ntype = node.get('type', 'process')
+    default_w, default_h = DEFAULT_NODE_SIZES.get(ntype, (120, 60))
+    label = node.get('label', '')
+    label_width = _estimate_label_width(label)
+    w = max(default_w, label_width)
+    return (w, default_h)
+
+
+# 兼容旧引用
+NODE_SIZES = DEFAULT_NODE_SIZES
 
 # =============================================================================
 # 布局参数 — 泳道图（泳道横向排列为列，流程从上往下）
@@ -153,6 +183,43 @@ def validate(data):
             if decision_out.get(nid, 0) < 2:
                 errors.append(f"decision 节点 {nid} 至少需要 2 条出边，当前 {decision_out.get(nid, 0)} 条")
 
+    # 循环依赖检测 (T-1)
+    if nodes and edges:
+        adj = defaultdict(list)
+        in_deg_check = defaultdict(int)
+        all_node_ids = [n.get('id') for n in nodes if n.get('id')]
+        for nid in all_node_ids:
+            in_deg_check[nid] = 0
+        for edge in edges:
+            efrom, eto = edge.get('from'), edge.get('to')
+            if efrom and eto and efrom in set(all_node_ids) and eto in set(all_node_ids):
+                adj[efrom].append(eto)
+                in_deg_check[eto] += 1
+        queue = deque([nid for nid in all_node_ids if in_deg_check[nid] == 0])
+        visited_count = 0
+        while queue:
+            nid = queue.popleft()
+            visited_count += 1
+            for neighbor in adj[nid]:
+                in_deg_check[neighbor] -= 1
+                if in_deg_check[neighbor] == 0:
+                    queue.append(neighbor)
+        if visited_count < len(all_node_ids):
+            cycle_nodes = [nid for nid in all_node_ids
+                           if in_deg_check.get(nid, 0) > 0]
+            errors.append(f"检测到循环连线，涉及节点: {', '.join(cycle_nodes)}")
+
+    # 节点数量警告 (T-3)
+    if len(nodes) > 20:
+        errors.append(f"节点数 ({len(nodes)}) 超过20，建议拆分为多个子图以提高可读性")
+
+    # 节点标签长度检查 (T-2)
+    for node in nodes:
+        label = node.get('label', '')
+        if len(label) > 10:
+            nid = node.get('id', '?')
+            errors.append(f"警告: 节点 {nid} 标签 \"{label}\" 超过10字符，可能溢出节点框")
+
     return errors
 
 
@@ -232,7 +299,7 @@ def compute_layout(data):
             for node in lane_nodes.get(lid, []):
                 row_counts[level_map[node['id']]] += 1
             max_per_row = max(row_counts.values(), default=1)
-            max_nw = max((NODE_SIZES.get(n['type'], (120, 60))[0]
+            max_nw = max((get_node_size(n)[0]
                           for n in lane_nodes.get(lid, [])), default=120)
             needed = max_per_row * max_nw + (max_per_row - 1) * NODE_X_GAP + LANE_CONTENT_PADDING * 2
             lane_widths[lid] = max(LANE_MIN_WIDTH, int(needed))
@@ -266,7 +333,7 @@ def compute_layout(data):
             for row, row_nodes_list in row_groups.items():
                 n_count = len(row_nodes_list)
                 for i, node in enumerate(row_nodes_list):
-                    nw, nh = NODE_SIZES.get(node['type'], (120, 60))
+                    nw, nh = get_node_size(node)
                     # 水平：在泳道列内居中
                     total_w = n_count * nw + (n_count - 1) * NODE_X_GAP
                     start_x = (lw - total_w) / 2
@@ -292,7 +359,7 @@ def compute_layout(data):
             row = col_row_counter[col]
             col_row_counter[col] += 1
 
-            nw, nh = NODE_SIZES.get(node['type'], (120, 60))
+            nw, nh = get_node_size(node)
             rel_x = int(DIAGRAM_MARGIN + col * FLOW_H_SPACING + (FLOW_H_SPACING - nw) / 2)
             rel_y = int(DIAGRAM_MARGIN + row * FLOW_V_SPACING + (FLOW_V_SPACING - nh) / 2)
             node_positions[nid] = (rel_x, rel_y, nw, nh)
@@ -496,7 +563,7 @@ def generate_xml(data, node_positions, lane_geometries, diagram_info):
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python3 yaml2drawio.py <input.diagram.yaml> [output.drawio]", file=sys.stderr)
+        print("用法: python yaml2drawio.py <input.diagram.yaml> [output.drawio]", file=sys.stderr)
         sys.exit(1)
 
     input_path = sys.argv[1]

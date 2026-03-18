@@ -233,11 +233,17 @@ edges:
 
 ## 转换命令
 
-需要 Python 3.8+ 和 PyYAML（`pip3 install pyyaml`）。
+需要 Python 3.8+ 和 PyYAML（`pip install pyyaml`）。
 
 ```bash
+# macOS / Linux
 python3 scm-prd-workflow/scripts/yaml2drawio.py \
     requirements/REQ-xxx/diagrams/main-flow.diagram.yaml
+
+# Windows（根据环境使用 python 或 py -3）
+python scm-prd-workflow/scripts/yaml2drawio.py ^
+    requirements/REQ-xxx/diagrams/main-flow.diagram.yaml
+
 # → 输出: requirements/REQ-xxx/diagrams/main-flow.drawio
 ```
 

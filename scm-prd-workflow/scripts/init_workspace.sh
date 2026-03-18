@@ -1,11 +1,15 @@
-#!/bin/bash
-# SCM PRD 工作空间初始化脚本
+#!/usr/bin/env bash
+# SCM PRD 工作空间初始化脚本（macOS / Linux / Git Bash on Windows）
 # 用法: bash init_workspace.sh [需求简称]
+#
+# 注意：此脚本需要 Bash 环境。Windows 用户可通过 Git Bash 或 WSL 运行。
+# Claude Code 在各平台上会通过自身工具自动完成初始化，无需手动运行此脚本。
 
 set -e
 
 REQ_NAME="${1:-unnamed}"
 DATE=$(date +%Y%m%d)
+TODAY=$(date +%Y-%m-%d)
 REQ_ID="REQ-${DATE}-${REQ_NAME}"
 REQ_DIR="requirements/${REQ_ID}"
 
@@ -13,19 +17,19 @@ REQ_DIR="requirements/${REQ_ID}"
 if [ ! -d "knowledge-base" ]; then
     mkdir -p knowledge-base
     echo "✓ 创建 knowledge-base/ 目录"
-    
+
     # 创建空的索引文件
-    cat > knowledge-base/_index.md << 'EOF'
+    cat > knowledge-base/_index.md << EOF
 ---
 type: knowledge-index
-last_updated: $(date +%Y-%m-%d)
+last_updated: ${TODAY}
 total_domains: 0
 overall_completeness: 0%
 ---
 
 # 供应链知识库索引
 
-> 最后更新: $(date +%Y-%m-%d)
+> 最后更新: ${TODAY}
 > 覆盖领域: 待添加
 > 整体完整度: 0%
 
@@ -62,17 +66,32 @@ else
     #   .drawio        — draw.io XML 文件（由 yaml2drawio.py 从 .diagram.yaml 转换生成）
 fi
 
+# 检测 Python 环境
+PYTHON_CMD=""
+for cmd in python3 python py; do
+    if $cmd -c "import yaml; print('ok')" >/dev/null 2>&1; then
+        PYTHON_CMD="$cmd"
+        echo "✓ 检测到 Python 环境: $PYTHON_CMD"
+        break
+    fi
+done
+if [ -z "$PYTHON_CMD" ]; then
+    echo "⚠ 未检测到 Python 3 + PyYAML 环境，泳道图将仅输出 .diagram.yaml 源文件"
+fi
+
 # 创建配置文件（如不存在）
 if [ ! -f ".scm-prd-config.yaml" ]; then
     cat > .scm-prd-config.yaml << EOF
 # SCM PRD 工作流配置
 project_name: ""
 default_author: ""
-prd_output_format: 
+prd_output_format:
   - markdown
   - docx  # 取消注释此行启用Word输出
 knowledge_base_path: "./knowledge-base"
 requirements_path: "./requirements"
+python_cmd: "${PYTHON_CMD}"
+python_available: $([ -n "$PYTHON_CMD" ] && echo "true" || echo "false")
 EOF
     echo "✓ 创建配置文件: .scm-prd-config.yaml"
 fi

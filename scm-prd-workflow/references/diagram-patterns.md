@@ -138,7 +138,7 @@ edges:
 - 每个 lane 代表一个角色或系统，支持 SCM 色板（blue/green/orange/purple）
 - 节点 type 决定形状：`process` 矩形、`decision` 菱形、`start`/`end` 圆形
 - `style: error` 标记异常路径（红色）、`style: async` 标记异步连线（虚线）
-- 转换命令：`python3 scripts/yaml2drawio.py <file.diagram.yaml>`
+- 转换命令：`{python_cmd} scripts/yaml2drawio.py <file.diagram.yaml>`（`python_cmd` 为初始化时检测到的 Python 命令，如 `python3`、`python` 或 `py -3`）
 
 ### 备选方案：Mermaid 简单泳道
 
