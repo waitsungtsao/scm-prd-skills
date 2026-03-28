@@ -3,8 +3,10 @@ domain: {DOMAIN_CODE}
 domain_cn: {领域中文名}
 last_updated: {YYYY-MM-DD}
 sources:
-  - type: {interview|document|observation}
+  # type 枚举: interview(口述), document(文档), inference(推测), observation(观察)
+  - type: {interview|document|inference|observation}
     date: {YYYY-MM-DD}
+    # confirmed: true=用户明确确认, partial=大方向确认但细节待补充, false=尚未经用户确认（来自文档提取或AI推测）
     confirmed: {true|partial|false}
 completeness: {0-100}%
 gaps:

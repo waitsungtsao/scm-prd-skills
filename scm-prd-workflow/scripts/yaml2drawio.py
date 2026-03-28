@@ -75,11 +75,15 @@ def _estimate_label_width(label):
 
 
 def get_node_size(node):
-    """根据节点类型和标签长度计算节点尺寸，长标签自动加宽。"""
+    """根据节点类型和标签长度计算节点尺寸，长标签自动加宽。
+    菱形节点可用文字区域约为外接矩形的50%，因此宽度需要额外补偿。"""
     ntype = node.get('type', 'process')
     default_w, default_h = DEFAULT_NODE_SIZES.get(ntype, (120, 60))
     label = node.get('label', '')
     label_width = _estimate_label_width(label)
+    # 菱形节点可用面积小，宽度乘以 1.4 补偿
+    if ntype == 'decision':
+        label_width = int(label_width * 1.4)
     w = max(default_w, label_width)
     return (w, default_h)
 
@@ -111,8 +115,9 @@ FLOW_V_SPACING = 100
 # =============================================================================
 
 def validate(data):
-    """校验 YAML 结构完整性，返回错误列表。"""
+    """校验 YAML 结构完整性，返回 (errors, warnings) 二元组。"""
     errors = []
+    warnings = []
 
     diagram = data.get('diagram', {})
     if not diagram.get('title'):
@@ -211,16 +216,16 @@ def validate(data):
 
     # 节点数量警告 (T-3)
     if len(nodes) > 20:
-        errors.append(f"节点数 ({len(nodes)}) 超过20，建议拆分为多个子图以提高可读性")
+        warnings.append(f"节点数 ({len(nodes)}) 超过20，建议拆分为多个子图以提高可读性")
 
     # 节点标签长度检查 (T-2)
     for node in nodes:
         label = node.get('label', '')
         if len(label) > 10:
             nid = node.get('id', '?')
-            errors.append(f"警告: 节点 {nid} 标签 \"{label}\" 超过10字符，可能溢出节点框")
+            warnings.append(f"节点 {nid} 标签 \"{label}\" 超过10字符，可能溢出节点框")
 
-    return errors
+    return errors, warnings
 
 
 # =============================================================================
@@ -431,9 +436,12 @@ def generate_xml(data, node_positions, lane_geometries, diagram_info):
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
     lines.append('<mxfile>')
     lines.append('  <diagram name="Page-1">')
-    lines.append('    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" '
-                 'tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" '
-                 'pageWidth="1600" pageHeight="1200">')
+    # 画布尺寸根据图表实际尺寸动态计算，至少 1600×1200
+    page_w = max(1600, diagram_info.get('total_width', 1600) + 100)
+    page_h = max(1200, diagram_info.get('total_height', 1200) + 100)
+    lines.append(f'    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" '
+                 f'tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" '
+                 f'pageWidth="{page_w}" pageHeight="{page_h}">')
     lines.append('      <root>')
     lines.append('        <mxCell id="0"/>')
     lines.append('        <mxCell id="1" parent="0"/>')
@@ -591,11 +599,15 @@ def main():
         sys.exit(1)
 
     # 校验
-    errors = validate(data)
+    errors, warnings = validate(data)
+    if warnings:
+        print("YAML 校验警告:", file=sys.stderr)
+        for warn in warnings:
+            print(f"  ⚠ {warn}", file=sys.stderr)
     if errors:
         print("YAML 校验失败:", file=sys.stderr)
         for err in errors:
-            print(f"  - {err}", file=sys.stderr)
+            print(f"  ✗ {err}", file=sys.stderr)
         sys.exit(1)
 
     # 布局计算

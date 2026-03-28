@@ -120,6 +120,14 @@ def check_fuzzy_words(content):
         ('可配置', '请说明配置项、默认值和配置入口'),
     ]
 
+    # 排除词表：包含模糊词但语义明确的合法术语
+    exclusions = {
+        '及时': ['及时性', '及时率'],
+        '一般': ['一般纳税人', '一般贸易', '一般计税'],
+        '可能': ['可能性', '不可能'],
+        '合理': ['合理性'],
+    }
+
     lines = content.split('\n')
     for i, line in enumerate(lines, 1):
         # 跳过代码块和注释
@@ -127,6 +135,14 @@ def check_fuzzy_words(content):
             continue
         for word, suggestion in fuzzy_patterns:
             if word in line:
+                # 检查是否命中排除词表中的合法术语
+                excluded = False
+                for exc_term in exclusions.get(word, []):
+                    if exc_term in line:
+                        excluded = True
+                        break
+                if excluded:
+                    continue
                 issues.append({
                     'severity': '警告',
                     'type': '模糊用语',

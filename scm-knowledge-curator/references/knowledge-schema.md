@@ -28,9 +28,10 @@ domain: OMS
 domain_cn: 订单管理系统
 last_updated: 2025-03-01
 sources:
+  # type 枚举: interview(口述), document(文档), inference(推测), observation(观察)
   - type: interview
     date: 2025-03-01
-    confirmed: true
+    confirmed: true       # true=用户明确确认, partial=大方向确认但细节待补充, false=尚未经用户确认
   - type: document
     name: "OMS需求说明书V2.1.docx"
     confirmed: partial
@@ -74,10 +75,15 @@ gaps:
 ## 5. 系统交互
 [本领域与其他系统的接口清单]
 
-## 6. 已知问题与历史包袱
+## 6. 角色与权限
+| 角色 | 核心操作 | 审批权限 | 数据可见范围 |
+|------|---------|---------|------------|
+| ... | ... | ... | ... |
+
+## 7. 已知问题与历史决策
 > 2023年因XX原因，做了YY临时方案，目前仍在使用...
 
-## 7. 待确认事项
+## 8. 待确认事项
 - [ ] 大客户订单是否有独立审批流程？
 - [ ] 订单超时自动取消的时间阈值？
 ```
