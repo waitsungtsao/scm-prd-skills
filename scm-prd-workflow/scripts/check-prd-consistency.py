@@ -22,6 +22,37 @@ from collections import defaultdict
 
 
 # =============================================================================
+# PRD 模式检测
+# =============================================================================
+
+def detect_prd_mode(content):
+    """检测 PRD 模式和需求类型，用于自适应检查。"""
+    mode = 'full'  # full / lite
+    requirement_type = 'new'  # new / update / mixed
+
+    # 从 front matter 检测
+    if content.startswith('---'):
+        end = content.find('---', 3)
+        if end > 0:
+            fm = content[3:end]
+            if 'mode: lite' in fm:
+                mode = 'lite'
+            for line in fm.split('\n'):
+                line = line.strip()
+                if line.startswith('requirement_type:'):
+                    val = line.split(':', 1)[1].strip().strip('"\'')
+                    if val in ('update', 'mixed', 'new'):
+                        requirement_type = val
+
+    # 兜底：按章节数判断
+    chapter_count = len(re.findall(r'^##\s+第\d+章', content, re.MULTILINE))
+    if chapter_count <= 7 and mode != 'lite':
+        mode = 'lite'
+
+    return mode, requirement_type
+
+
+# =============================================================================
 # ID 模式定义
 # =============================================================================
 
@@ -33,13 +64,20 @@ ID_PATTERNS = {
     'BR': re.compile(r'\bBR-(\d{3})\b'),
 }
 
-# 各 ID 类型的预期定义章节
+# 各 ID 类型的预期定义章节（full 模式）
 DEFINITION_CHAPTERS = {
     'G': '第2章',
     'C': '第4章',
     'F': '第6章',
     'IF': '第7章',
     'BR': '第6章',
+}
+
+# lite 模式章节映射
+DEFINITION_CHAPTERS_LITE = {
+    'G': '第2章',
+    'C': '第3章',
+    'F': '第4章',
 }
 
 
@@ -78,11 +116,21 @@ def find_definition_and_reference(lines, prefix):
     return id_locations
 
 
-def check_id_consistency(content, lines):
-    """检查所有 ID 的定义与引用完整性。"""
+def check_id_consistency(content, lines, skip_prefixes=None, lenient_unreferenced=False):
+    """检查所有 ID 的定义与引用完整性。
+
+    Args:
+        skip_prefixes: 跳过检查的 ID 前缀集合（如 lite 模式跳过 IF/BR）
+        lenient_unreferenced: 是否将"已定义未引用"降级为信息级别（update 模式下按需生成章节可能导致）
+    """
     issues = []
+    if skip_prefixes is None:
+        skip_prefixes = set()
 
     for prefix in ID_PATTERNS:
+        if prefix in skip_prefixes:
+            continue
+
         locations = find_definition_and_reference(lines, prefix)
 
         for full_id, info in sorted(locations.items()):
@@ -96,8 +144,9 @@ def check_id_consistency(content, lines):
                 })
             elif info['defined'] and not info['referenced']:
                 def_lines = ', '.join(f'L{loc[0]}' for loc in info['defined'][:3])
+                severity = '信息' if lenient_unreferenced else '警告'
                 issues.append({
-                    'severity': '警告',
+                    'severity': severity,
                     'type': 'ID未引用',
                     'message': f'{full_id} 已定义（{def_lines}）但未被其他章节引用',
                     'suggestion': f'检查 {full_id} 是否需要在验收标准或流程图中引用',
@@ -193,9 +242,20 @@ def main():
         content = f.read()
 
     lines = content.split('\n')
+    mode, requirement_type = detect_prd_mode(content)
+    print(f"检测到 PRD 模式: {mode}, 需求类型: {requirement_type}")
+
+    # lite 模式不检查 IF/BR（轻量PRD可能不含接口和详细规则编号）
+    if mode == 'lite':
+        skip_prefixes = {'IF', 'BR'}
+    else:
+        skip_prefixes = set()
+
+    # update/mixed 模式下，未引用的 ID 降级为信息（按需生成章节可能导致部分ID只定义不引用）
+    lenient_unreferenced = requirement_type in ('update', 'mixed')
 
     all_issues = []
-    all_issues.extend(check_id_consistency(content, lines))
+    all_issues.extend(check_id_consistency(content, lines, skip_prefixes, lenient_unreferenced))
     all_issues.extend(check_fuzzy_words(content))
     all_issues.extend(check_change_coverage(content, lines))
 
@@ -206,8 +266,9 @@ def main():
 
     critical = [i for i in all_issues if i['severity'] == '关键']
     warnings = [i for i in all_issues if i['severity'] == '警告']
+    infos = [i for i in all_issues if i['severity'] == '信息']
 
-    print(f"PRD 一致性检查结果: {len(critical)} 个关键问题, {len(warnings)} 个警告")
+    print(f"PRD 一致性检查结果: {len(critical)} 个关键问题, {len(warnings)} 个警告, {len(infos)} 个信息")
     print()
 
     if critical:
@@ -222,6 +283,12 @@ def main():
         for i, issue in enumerate(warnings, 1):
             print(f"  {i}. [{issue['type']}] {issue['message']}")
             print(f"     建议: {issue['suggestion']}")
+        print()
+
+    if infos:
+        print("== 信息 ==")
+        for i, issue in enumerate(infos, 1):
+            print(f"  {i}. [{issue['type']}] {issue['message']}")
 
     sys.exit(1 if critical else 0)
 

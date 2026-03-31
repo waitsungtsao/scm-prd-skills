@@ -598,6 +598,10 @@ def main():
         print("错误: YAML 文件为空", file=sys.stderr)
         sys.exit(1)
 
+    if not isinstance(data, dict):
+        print(f"错误: YAML 内容必须是字典（mapping），当前类型为 {type(data).__name__}", file=sys.stderr)
+        sys.exit(1)
+
     # 校验
     errors, warnings = validate(data)
     if warnings:

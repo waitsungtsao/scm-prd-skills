@@ -53,6 +53,11 @@ else
     echo "ℹ knowledge-base/ 已存在"
 fi
 
+# 提示系统公约（如不存在）
+if [ ! -f "knowledge-base/system-conventions.md" ]; then
+    echo "ℹ 提示: knowledge-base/system-conventions.md 不存在。如需避免PRD重复描述通用组件行为（查询、排序、分页等），可在PRD流程中创建系统公约。"
+fi
+
 # 创建需求目录
 if [ -d "${REQ_DIR}" ]; then
     echo "⚠ 需求目录 ${REQ_DIR} 已存在，跳过创建"
