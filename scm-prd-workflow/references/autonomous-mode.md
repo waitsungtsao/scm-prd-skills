@@ -201,8 +201,8 @@
 3. **规划 PRD 大纲** → 输出大纲供用户确认（详见下方"PRD 大纲确认"），大纲中包含 ID 分配规划（含 BR-XXX 分段方案）
 4. **撰写PRD** → 读取 `references/phase3-write.md` 和 `references/diagram-patterns.md`，严格按 ID 分配规划逐章撰写。当 `requirement_type = update|mixed` 时，只生成有实质内容的章节，未涉及变更的方面不独立成节，由PRD尾部一段话统一说明
 4.5. **记录决策** → 撰写过程中遇到多方案选择时，同步写入 `decision-log.md`（使用 `templates/decision-log-template.md`）。当 `[推断]` 涉及多方案选择时（如选择了方案A而非方案B），应同时创建 DL-XXX 记录
-5. **绘制流程图** → 保存到 `diagrams/` 目录（.diagram.yaml + .drawio + .mermaid）
-5.5. **导出图表** → 调用 `scripts/export-diagrams.py` 导出 .svg/.png（如环境支持）
+5. **绘制流程图** → 保存到 `diagrams/` 目录。`python_available = true` 时**默认生成** `.diagram.yaml` + `.drawio` + `.mermaid`；`python_available = false` 时按 SKILL.md "draw.io 生成降级策略 DG-01" 处理（引导安装依赖或降级，不阻断流程）
+5.5. **导出图表** → 调用 `scripts/export-diagrams.py` 统一处理 .drawio 生成 + .svg/.png 导出（.drawio 生成失败不阻断 PNG 导出）
 6. **一致性扫描** → 如 Python 可用，执行 `{python_cmd} scripts/check-prd-consistency.py` 验证 ID 交叉引用和模糊用语；发现关键问题先自动修复
 7. **执行自检** → 读取 `references/phase4-review.md`，执行 CK-0 到 CK-9 全部检查
 8. **生成报告** → 输出 `review-report.md`

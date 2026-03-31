@@ -4,6 +4,20 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.03.10] - 2026-03-31
+
+### Added
+
+- **draw.io 生成降级策略 DG-01**（SKILL.md）：结构化的三步降级流程 — 告知原因+安装引导 → 尝试安装+验证 → 失败后降级选择，记录 `diagram_fallback` 避免重复询问
+- **yaml2drawio.py 运行时错误处理**（SKILL.md）：自动修复重试（最多2次），失败保留 YAML 源文件，不阻断 PRD 流程
+- **export-diagrams.py 集成 yaml2drawio.py**：新增 `generate_drawio()` 函数，导出管道分三阶段执行（.drawio → YAML PNG → Mermaid PNG），.drawio 生成失败不阻断 PNG 导出
+
+### Changed
+
+- **draw.io 为默认产出**：`python_available=true` 时必须自动生成 `.diagram.yaml` + `.drawio`，无需用户确认
+- **phase3-write.md 图表输出规则**：对齐 export-diagrams.py 三阶段管道，明确 .drawio 默认产出和降级引用
+- **autonomous-mode.md Stage B 步骤5/5.5**：补充 draw.io 默认生成说明和 DG-01 降级引用
+
 ## [2026.03.9] - 2026-03-31
 
 ### Added

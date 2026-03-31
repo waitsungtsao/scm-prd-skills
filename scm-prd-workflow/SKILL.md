@@ -300,18 +300,81 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 | 状态流转、时序、数据流、简单流程（≤12节点） | Mermaid |
 | ER关系图 | Mermaid（≤5实体）/ YAML → draw.io（>5实体） |
 
-`python_available=false` 时首次需要泳道图时提示用户选择：安装依赖 / 仅保留YAML / 改用Mermaid。
+**默认行为**：当 `python_available = true` 时，符合 YAML → draw.io 条件的图表**必须默认生成 `.diagram.yaml` + `.drawio`**，不需要询问用户确认。`.drawio` 文件始终保留供用户手动编辑。
+
+### draw.io 生成降级策略（DG-01）
+
+当需要生成 YAML → draw.io 格式的图表但环境不满足时，按以下流程处理。核心原则：**尽最大努力生成 draw.io，失败时清晰告知原因并提供降级方案，绝不因图表问题阻断 PRD 输出**。
+
+#### 首次触发时机
+
+在 PRD 撰写过程中，首次遇到需要生成 YAML → draw.io 的图表（泳道图、>12节点流程、>5实体ER图）且 `python_available = false` 时触发。
+
+#### 第一步：告知原因并提供安装引导
+
+使用 `AskUserQuestion`：
+
+> header: "图表依赖"
+> 问题: "泳道图/复杂流程图需要 Python + PyYAML 环境来生成 .drawio 文件，但当前未检测到可用环境。\n\n请选择处理方式："
+> 选项：
+> - **安装依赖（推荐）**：我来帮你尝试安装 Python 环境和 PyYAML
+> - **仅保留 YAML 源文件**：输出 .diagram.yaml 但不生成 .drawio，你可以稍后手动转换
+> - **改用 Mermaid**：使用 Mermaid subgraph 替代泳道图（布局精度会降低）
+
+#### 第二步：尝试安装（用户选择"安装依赖"时）
+
+按以下顺序尝试安装，**每步失败后立即告知用户原因**：
+
+1. 先检查 Python 是否已安装但缺少 PyYAML：
+   - `python3 --version`（或 `python --version`、`py -3 --version`）
+   - 如 Python 存在但 `import yaml` 失败 → 提示 `pip install pyyaml`
+   - 如 Python 不存在 → 告知用户需要先安装 Python 3.8+
+
+2. 尝试安装 PyYAML：
+   - `{python_cmd} -m pip install pyyaml`
+   - 安装成功 → 重新验证 `{python_cmd} -c "import yaml; print('ok')"` → 更新 `python_available = true`、`python_cmd`
+   - 安装失败 → 记录失败原因（权限不足 / pip 不可用 / 网络问题），告知用户
+
+3. **安装成功**：通知用户"环境已就绪"，后续自动生成 .drawio，继续 PRD 流程
+4. **安装失败**：告知具体原因，进入第三步
+
+#### 第三步：安装失败后的降级选择
+
+安装失败后，使用 `AskUserQuestion`：
+
+> header: "安装未成功"
+> 问题: "{具体失败原因}。\n\n你可以稍后手动安装后重新运行，或选择降级方案继续："
+> 选项：
+> - **仅保留 YAML 源文件**：输出 .diagram.yaml，后续可通过 `python yaml2drawio.py` 手动转换
+> - **改用 Mermaid**：使用 Mermaid subgraph 替代（布局精度会降低）
+
+用户选择后，**记录本次会话的降级决策**（`diagram_fallback = yaml_only | mermaid`），后续同类图表不再重复询问，直接按选定方案执行。
+
+#### 降级后的行为
+
+- **yaml_only 模式**：生成 `.diagram.yaml` 源文件，在 PRD 中以文字描述"流程图见 `diagrams/xxx.diagram.yaml`，需 Python 环境转换为 .drawio"替代图表占位
+- **mermaid 模式**：将泳道图改用 Mermaid `graph TD` + `subgraph` 实现，标注"此图为 Mermaid 简化版，精确泳道版需 Python 环境"
+- 两种降级模式下，PRD 文档末尾增加提示："本PRD中部分图表因环境限制使用了降级格式，安装 Python + PyYAML 后可运行 `python scripts/export-diagrams.py diagrams/` 生成完整 .drawio 文件"
+
+#### yaml2drawio.py 运行时错误处理
+
+即使 `python_available = true`，`yaml2drawio.py` 转换仍可能因 YAML 语法错误、节点引用错误等失败。此时：
+
+1. 读取错误输出，**自动修复** YAML 中的问题（拼写错误、缺失引用等）
+2. 重试转换（最多 2 次自动修复重试）
+3. 仍然失败 → 保留 `.diagram.yaml` 源文件，告知用户"draw.io 转换失败，已保留 YAML 源文件，错误信息：{具体错误}"
+4. **不阻断 PRD 流程**，继续后续章节撰写
 
 ### 图表导出与 Word 生成
 
-图表生成后，自动调用 `scripts/export-diagrams.py` 导出图片：
-- `.diagram.yaml` → `yaml2drawio.py`(.drawio) + `yaml2svg.py`(.svg) + cairosvg(.png)
+图表生成后，自动调用 `scripts/export-diagrams.py` 导出：
+- `.diagram.yaml` → `yaml2drawio.py`(**.drawio**) + `yaml2svg.py`(.svg) + cairosvg(.png)
 - `.mermaid` → mermaid.ink API(.png)
-- .drawio 始终保留供用户手动编辑
+- **.drawio 始终默认生成**（Python 可用时），供用户在 draw.io 中手动编辑
 
 **Word 默认输出**：当 `docx_available = true` 时，交付阶段默认同时输出 Markdown + Word（`scripts/md2docx.py`），Word 中自动嵌入 `diagrams/*.png` 图片。用户可选择仅 Markdown。
 
-**降级策略**：
+**其他降级策略**：
 
 | 条件 | 行为 |
 |------|------|
