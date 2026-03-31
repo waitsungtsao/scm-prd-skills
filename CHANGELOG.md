@@ -4,6 +4,29 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.03.9] - 2026-03-31
+
+### Added
+
+- **CK-9 多角色审查**（phase4-review.md）：架构师/QA/安全/BA 四角色交叉审查，12 个检查项，支持顺序/并行(Agent)两种执行模式
+- **决策日志**（decision-log-template.md）：DL-XXX 编号体系，记录方案比选过程，PRD 正文轻量引用
+- **版本变更记录**（prd-changelog-template.md）：语义级变更追踪，含影响传播分析，每轮修改自动持久化
+- **数据模型/ER 图**（prd-template.md Ch.7 重构）：新增 §7.2 数据模型（ER 图+实体说明表）、§7.3 数据变更规格（字段变更清单+影响分析），原 §7.2-7.6 重编号为 §7.4-7.8
+- **ER 图支持**（diagram-patterns.md, diagram-yaml-schema.md, yaml2drawio.py）：Mermaid erDiagram + YAML type:er → draw.io，含实体表格渲染和 FK/PK 校验
+- **yaml2svg.py**：YAML DSL → SVG 矢量图渲染器，复用 yaml2drawio.py 布局引擎，支持泳道图/流程图/ER图
+- **export-diagrams.py**：批量导出 diagrams/ 下所有图表为 PNG（.diagram.yaml 经 yaml2svg，.mermaid 经 mermaid.ink API），支持增量导出
+- **md2docx.py**：PRD Markdown → Word 转换，自动嵌入 diagrams/*.png 图片，支持表格/引用/代码块/内联格式
+- **图表导出自动化**（SKILL.md）：初始化检测 cairosvg/python-docx/mermaid.ink 可用性，环境允许时自动导出 PNG 和生成 Word
+- **PRD 简洁性规范**（phase3-write.md）：禁止同义反复/填充句/过度解释/无信息修饰词，单句≤40字
+- **CK-5.6~5.9 冗余检测**（phase4-review.md）：检查同义反复、填充句、过度解释、无信息修饰词
+- **check-prd-consistency.py 扩展**：新增冗余用语/填充句自动扫描、ER 图一致性检查、DL-XXX 交叉引用校验
+
+### Changed
+
+- **SKILL.md 精简**：从 730 行压缩至 ~450 行（-40%），删除与 reference 文件重复的 Phase 1-4 详细流程和自主/轻量模式操作步骤
+- **Word 输出默认行为**：python-docx 可用时默认同时输出 Markdown + Word（含嵌入图片），不再每次询问格式
+- **语言打磨**：全面精简 phase3-write.md/phase4-review.md/autonomous-mode.md/lite-mode.md/phase1-intake.md/phase2-clarify.md 中的冗余解释和括号同义描述
+
 ## [2026.03.8] - 2026-03-31
 
 ### Added
