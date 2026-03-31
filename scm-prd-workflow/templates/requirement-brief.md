@@ -1,6 +1,7 @@
 ---
 type: intake
 requirement_id: REQ-{YYYYMMDD}-{需求简称}
+requirement_type: "{new|update|mixed}"
 phase: 1
 status: completed
 created: {YYYY-MM-DD}
@@ -42,6 +43,13 @@ updated: {YYYY-MM-DD}
 | {目标1} | {指标} | {量化目标} |
 
 ## 4. 涉及范围（初步）
+
+### 4.0 变更范围
+
+<!-- 仅 requirement_type = update|mixed 时填写；requirement_type = new 时删除本节 -->
+
+**涉及变更的方面**：{如：业务规则、界面交互}
+**不涉及变更的方面**：{如：业务流程、数据模型、接口、权限、NFR——沿用现有系统行为，PRD中不展开描述}
 
 ### 4.1 涉及系统模块
 | 系统 | 模块 | 当前功能现状 | 预期变更 |

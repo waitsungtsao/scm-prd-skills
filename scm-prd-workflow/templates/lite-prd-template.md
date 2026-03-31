@@ -2,6 +2,7 @@
 type: prd
 mode: lite
 requirement_id: REQ-{YYYYMMDD}-{需求简称}
+requirement_type: "{new|update|mixed}"
 phase: 3
 status: 待评审
 version: V1.0
@@ -81,7 +82,7 @@ updated: {YYYY-MM-DD}
 
 ## 第5章 流程与交互
 
-> 仅在本次变更涉及流程调整时生成此章节。如无流程变更，标注"本次变更不涉及流程调整"或直接省略本章。
+> 仅在本次变更涉及流程调整时生成此章节。如无流程变更，不生成本章（由PRD尾部统一说明未涉及的方面）。
 
 {Mermaid 流程图 / 状态图}
 

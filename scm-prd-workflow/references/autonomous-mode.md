@@ -89,9 +89,15 @@
 
 1. **分析用户输入**：用户可能一次性提供大段背景，也可能只说一句话
 2. **读取知识库**：如存在 `knowledge-base/`，读取 `_index.md` 了解覆盖范围，读取相关知识卡片补充背景
-3. **评估信息充分度**：按照下方标准评估
-4. **补充提问**（如需）：最多追问1轮，聚焦缺失的硬性条件
-5. **产出 intake.md**：使用 `templates/autonomous-intake-brief.md` 模板
+3. **推断变更范围**（仅 `requirement_type = update|mixed`）：根据用户描述自动推断 `change_scope` 和 `unchanged_scope`。推断原则：
+   - 用户明确提到的变更方面 → `change_scope`
+   - 用户未提及但可能受影响的方面 → 保守归入 `change_scope`（宁可多写不可遗漏）
+   - 用户明确说"不变""保持现有"的方面 → `unchanged_scope`
+   - 完全不相关的方面 → `unchanged_scope`
+   - 推断结果写入 intake.md §4.0，在 Stage C 审阅时供用户确认
+4. **评估信息充分度**：按照下方标准评估
+5. **补充提问**（如需）：最多追问1轮，聚焦缺失的硬性条件
+6. **产出 intake.md**：使用 `templates/autonomous-intake-brief.md` 模板（含变更范围声明）
 
 ### 一次性结构化提问模板
 
@@ -183,7 +189,7 @@
 1. **整理信息** → 输出 `intake.md`（使用 `templates/autonomous-intake-brief.md`）
 2. **推导假设** → 输出 `clarification.md`（AI基于信息缺口自主推导，标记假设依据）
 3. **规划 PRD 大纲** → 输出大纲供用户确认（详见下方"PRD 大纲确认"），大纲中包含 ID 分配规划（含 BR-XXX 分段方案）
-4. **撰写PRD** → 读取 `references/phase3-write.md` 和 `references/diagram-patterns.md`，严格按 ID 分配规划逐章撰写
+4. **撰写PRD** → 读取 `references/phase3-write.md` 和 `references/diagram-patterns.md`，严格按 ID 分配规划逐章撰写。当 `requirement_type = update|mixed` 时，只生成有实质内容的章节，未涉及变更的方面不独立成节，由PRD尾部一段话统一说明
 5. **绘制流程图** → 保存到 `diagrams/` 目录
 6. **一致性扫描** → 如 Python 可用，执行 `{python_cmd} scripts/check-prd-consistency.py` 验证 ID 交叉引用和模糊用语；发现关键问题先自动修复
 7. **执行自检** → 读取 `references/phase4-review.md`，执行 CK-0 到 CK-8 全部检查

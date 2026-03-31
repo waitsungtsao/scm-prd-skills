@@ -2,6 +2,7 @@
 type: prd
 mode: {interactive / autonomous}
 requirement_id: REQ-{YYYYMMDD}-{需求简称}
+requirement_type: "{new|update|mixed}"
 phase: 3
 status: 待评审
 version: V1.0
