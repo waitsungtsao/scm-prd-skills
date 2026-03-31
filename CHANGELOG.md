@@ -4,6 +4,38 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.03.8] - 2026-03-31
+
+### Added
+
+- **需求类型识别（MT-01）**（SKILL.md）：模式确认后新增需求类型问题（功能新增/功能优化/不确定），驱动按需生成章节策略
+- **变更范围声明（A.2.5）**（phase1-intake.md）：update 类需求在 intake 阶段声明哪些方面涉及变更，未选中 = 沿用现有
+- **系统公约模板**（templates/system-conventions-template.md）：7 个 section 覆盖 UI 模式、通用组件、交互规范、权限模型、接口公约、数据公约、非功能默认值，作为 AI 判断"标准行为无需描述"的参考
+- **按需生成章节规则**（phase3-write.md）：update 类需求只生成有实质内容的章节，无内容方面不独立成节，PRD 尾部一段话统一说明
+- **尾部汇总 section**（prd-template.md §10.7, lite-prd-template.md §7.3）：模板中明确"本次未涉及的方面"占位
+- **假设影响等级 rubric**（autonomous-mode.md）：定义高/中/低影响判断标准（核心业务→次要流程→展示体验）
+- **knowledge-discoveries.md 格式规范**（SKILL.md）：定义知识发现清单的结构和 curator 导入方式
+- **交互ID速查表**（SKILL.md）：汇总 MC/MT/SL/SC/P4/CK 全部交互ID的定义位置和触发时机
+- **需求类型变更协议**（SKILL.md）：允许中途变更 requirement_type，明确处理规则
+- **轻量→完整转换规则总表**（autonomous-mode.md）：6 行表格明确每个章节的转换方式，标注唯一需结构重写的 Ch.4→Ch.6
+- **check-skill-consistency.py**（scripts/）：Skill 定义文件自检脚本，6 类检查（文件引用、字段对齐、交互ID、章节引用、术语一致、模式覆盖）
+
+### Changed
+
+- **撰写原则**（SKILL.md）：新增"按需生成章节"原则，update 需求不生成空壳章节
+- **禁止事项**（SKILL.md）：轻量模式从"直接省略"改为"未涉及的方面不生成独立章节，由 PRD 尾部统一说明"
+- **Phase 1 确认流程**（phase1-intake.md）：5 次 AskUserQuestion 精简为 1 次合并确认
+- **CK-1.1 完整性检查**（phase4-review.md）：update 需求允许按需跳过章节，不视为缺失
+- **check-prd-consistency.py**（scripts/）：新增 PRD 模式检测（lite/full）和 requirement_type 感知，lite 模式跳过 IF/BR 检查，update 模式未引用 ID 降级为信息级别
+- **conventions 检测**（SKILL.md）：初始化时检测 system-conventions.md，作为 AI 内部参考（不在 PRD 中引用）
+- **变更范围过滤**（phase2-clarify.md）：update 需求跳过未涉及维度的详细澄清
+- **scope 推断**（autonomous-mode.md Stage A, lite-mode.md Stage L1）：自主/轻量模式自动推导变更范围
+
+### Fixed
+
+- **yaml2drawio.py**：新增 YAML 内容类型校验，非 dict 类型给出明确错误而非 AttributeError
+- **init_workspace.sh**：新增 system-conventions.md 存在性提示
+
 ## [2026.03.7] - 2026-03-29
 
 ### Added
