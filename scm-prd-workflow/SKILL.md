@@ -119,9 +119,13 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
    - `python -c "import yaml; print('ok')"`（Windows 常见）
    - `py -3 -c "import yaml; print('ok')"`（Windows Python Launcher）
    - 记录成功的命令为 `python_cmd`（如 `python3`），后续所有 Python 调用统一使用该命令
-   - 全部失败 → 记录 `python_available = false`，后续泳道图仅输出 `.diagram.yaml` 源文件（不转换为 `.drawio`），并在首次需要生成泳道图时提示用户（见 3.2 节）
-   - **注意**：轻量模式仅使用 Mermaid，不依赖 Python 环境
-6. **模式确认门控**（MC-01）：根据用户输入推荐模式，使用 `AskUserQuestion` 让用户确认
+   - 全部失败 → 记录 `python_available = false`，后续泳道图仅输出 `.diagram.yaml` 源文件（不转换为 `.drawio`），并在首次需要生成泳道图时提示用户
+   - 轻量模式仅使用 Mermaid，不依赖 Python 环境
+6. **检测图表导出能力**（Python 可用时追加）：
+   - `{python_cmd} -c "import cairosvg; print('ok')"` → `cairosvg_available`（SVG→PNG 转换）
+   - `{python_cmd} -c "import docx; print('ok')"` → `docx_available`（Word 文档生成）
+   - `{python_cmd} -c "import urllib.request; urllib.request.urlopen('https://mermaid.ink/img/Z3JhcGggVEQKICAgIEFbU3RhcnRd', timeout=5); print('ok')"` → `mermaid_ink_available`（Mermaid 图片导出）
+7. **模式确认门控**（MC-01）：根据用户输入推荐模式，使用 `AskUserQuestion` 让用户确认
 
 ### 模式确认门控
 
@@ -297,6 +301,23 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 | ER关系图 | Mermaid（≤5实体）/ YAML → draw.io（>5实体） |
 
 `python_available=false` 时首次需要泳道图时提示用户选择：安装依赖 / 仅保留YAML / 改用Mermaid。
+
+### 图表导出与 Word 生成
+
+图表生成后，自动调用 `scripts/export-diagrams.py` 导出图片：
+- `.diagram.yaml` → `yaml2drawio.py`(.drawio) + `yaml2svg.py`(.svg) + cairosvg(.png)
+- `.mermaid` → mermaid.ink API(.png)
+- .drawio 始终保留供用户手动编辑
+
+**Word 默认输出**：当 `docx_available = true` 时，交付阶段默认同时输出 Markdown + Word（`scripts/md2docx.py`），Word 中自动嵌入 `diagrams/*.png` 图片。用户可选择仅 Markdown。
+
+**降级策略**：
+
+| 条件 | 行为 |
+|------|------|
+| cairosvg 不可用 | 仅输出 .svg，Word 中图表位置用占位文字 |
+| mermaid.ink 不可达 | Mermaid 图保留 .mermaid 源文件 |
+| python-docx 不可用 | 不生成 Word，提示 `pip install python-docx` |
 
 ### 撰写原则
 
