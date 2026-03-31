@@ -250,3 +250,131 @@ python scm-prd-workflow/scripts/yaml2drawio.py ^
 转换后的 `.drawio` 文件可用 VS Code draw.io 扩展或 draw.io 桌面应用打开和编辑。
 
 **Python 不可用时**：`.diagram.yaml` 源文件本身是完整的图表描述，可在 Python 环境就绪后再转换，或回退到 Mermaid 方案。详见 SKILL.md 3.2 节降级处理。
+
+---
+
+## ER 图类型 (type: er)
+
+当 `diagram.type = er` 时，使用 `entities` 和 `relationships` 替代 `lanes`、`nodes`、`edges`。
+
+### ER 专用结构
+
+```yaml
+diagram:
+  title: "数据模型名称"          # 必填
+  type: er                       # 必填
+
+entities:                         # 替代 lanes + nodes，定义实体
+  - id: entity_id                 # 实体唯一标识（英文小写）
+    label: "实体中文名 ENGLISH_NAME"  # 显示标签
+    color: blue | green | orange | purple  # 可选，按所属系统着色
+    fields:                       # 实体字段列表
+      - name: field_name          # 字段英文名
+        type: string | int | decimal | datetime | boolean  # 字段类型
+        pk: true | false          # 是否主键（默认 false）
+        fk: target_entity_id      # 外键指向的实体（可选）
+        comment: "字段中文说明"    # 字段备注
+
+relationships:                    # 替代 edges，定义实体关系
+  - from: entity_id               # 源实体
+    to: entity_id                 # 目标实体
+    type: "1:1" | "1:N" | "N:1" | "N:M"  # 关系类型
+    label: "关系业务含义"          # 关系说明
+```
+
+### ER 图校验规则
+
+1. 所有 `fields[].fk` 引用的实体 ID 必须在 `entities` 中存在
+2. 所有 `relationships[].from` 和 `relationships[].to` 必须引用已存在的实体
+3. 每个实体至少有一个 `pk: true` 字段
+4. 实体 ID 不得重复
+5. `diagram.title` 不得为空
+
+### ER 图完整示例
+
+```yaml
+diagram:
+  title: "订单数据模型"
+  type: er
+
+entities:
+  - id: order
+    label: "订单 ORDER"
+    color: blue
+    fields:
+      - name: order_no
+        type: string
+        pk: true
+        comment: "订单号"
+      - name: status
+        type: string
+        comment: "订单状态"
+      - name: total_amount
+        type: decimal
+        comment: "总金额"
+      - name: warehouse_code
+        type: string
+        fk: warehouse
+        comment: "分配仓库"
+
+  - id: order_item
+    label: "订单明细 ORDER_ITEM"
+    color: blue
+    fields:
+      - name: item_id
+        type: string
+        pk: true
+        comment: "明细ID"
+      - name: order_no
+        type: string
+        fk: order
+        comment: "关联订单"
+      - name: sku_code
+        type: string
+        fk: sku
+        comment: "SKU编码"
+      - name: quantity
+        type: int
+        comment: "数量"
+      - name: unit_price
+        type: decimal
+        comment: "单价"
+
+  - id: warehouse
+    label: "仓库 WAREHOUSE"
+    color: green
+    fields:
+      - name: warehouse_code
+        type: string
+        pk: true
+        comment: "仓库编码"
+      - name: warehouse_name
+        type: string
+        comment: "仓库名称"
+
+  - id: sku
+    label: "SKU"
+    color: blue
+    fields:
+      - name: sku_code
+        type: string
+        pk: true
+        comment: "SKU编码"
+      - name: product_name
+        type: string
+        comment: "商品名称"
+
+relationships:
+  - from: order
+    to: order_item
+    type: "1:N"
+    label: "包含"
+  - from: order
+    to: warehouse
+    type: "N:1"
+    label: "分配到"
+  - from: order_item
+    to: sku
+    type: "N:1"
+    label: "关联"
+```

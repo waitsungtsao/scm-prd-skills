@@ -28,6 +28,7 @@
 | 复杂时序交互 | 时序图 | Mermaid | `sequenceDiagram` | 系统间调用时序 |
 | 系统架构概览 | 架构图 | Mermaid | `graph TD` + subgraph | 低复杂度架构展示 |
 | 简单流程（≤12节点） | 流程图 | Mermaid | `graph TD` | 节点数 ≤12 且无复杂交叉 |
+| 数据模型（实体关系） | ER图 | Mermaid / **YAML → draw.io** | `erDiagram` / `.diagram.yaml` | 涉及新实体或关系变更 |
 
 ## 泳道图布局约定
 
@@ -597,6 +598,123 @@ graph TD
         H2 --> T1[揽收确认]
     end
 ```
+
+## 模式 6: ER 关系图
+
+用于表达数据模型中的实体关系。在以下场景生成：新建系统、新增实体、实体关系变更。
+
+### Mermaid ER 图
+
+```mermaid
+erDiagram
+    ORDER ||--o{ ORDER_ITEM : "包含"
+    ORDER {
+        string order_no PK "订单号"
+        string status "订单状态"
+        decimal total_amount "总金额"
+        datetime created_at "创建时间"
+    }
+    ORDER_ITEM {
+        string item_id PK "明细ID"
+        string order_no FK "关联订单号"
+        string sku_code "SKU编码"
+        int quantity "数量"
+        decimal unit_price "单价"
+    }
+    ORDER }|--|| WAREHOUSE : "分配到"
+    WAREHOUSE {
+        string warehouse_code PK "仓库编码"
+        string warehouse_name "仓库名称"
+        string city "城市"
+    }
+    ORDER_ITEM }|--|| SKU : "关联"
+    SKU {
+        string sku_code PK "SKU编码"
+        string product_name "商品名称"
+        string category "品类"
+    }
+```
+
+**规范**：
+- 实体名称使用大写英文（如 ORDER, WAREHOUSE）
+- 字段注释使用中文
+- 标注 PK（主键）和 FK（外键）
+- 关系线上标注中文业务含义
+- 关系类型：`||--||` 一对一、`||--o{` 一对多、`}o--o{` 多对多
+
+### YAML → draw.io ER 图
+
+当实体数 >5 或关系复杂时，使用 YAML DSL 描述 ER 图（详见 `references/diagram-yaml-schema.md` 中的 ER 图类型定义）：
+
+```yaml
+diagram:
+  title: "订单数据模型"
+  type: er
+
+entities:
+  - id: order
+    label: "订单 ORDER"
+    color: blue
+    fields:
+      - name: order_no
+        type: string
+        pk: true
+        comment: "订单号"
+      - name: status
+        type: string
+        comment: "订单状态"
+      - name: warehouse_code
+        type: string
+        fk: warehouse
+        comment: "分配仓库"
+
+  - id: order_item
+    label: "订单明细 ORDER_ITEM"
+    color: blue
+    fields:
+      - name: item_id
+        type: string
+        pk: true
+        comment: "明细ID"
+      - name: order_no
+        type: string
+        fk: order
+        comment: "关联订单"
+
+  - id: warehouse
+    label: "仓库 WAREHOUSE"
+    color: green
+    fields:
+      - name: warehouse_code
+        type: string
+        pk: true
+        comment: "仓库编码"
+      - name: warehouse_name
+        type: string
+        comment: "仓库名称"
+
+relationships:
+  - from: order
+    to: order_item
+    type: "1:N"
+    label: "包含"
+  - from: order
+    to: warehouse
+    type: "N:1"
+    label: "分配到"
+```
+
+**ER 图文件命名**：`diagrams/er-{模块名}.mermaid` 或 `diagrams/er-{模块名}.diagram.yaml`
+
+**ER 图生成触发规则**：
+
+| 场景 | 是否生成 ER 图 |
+|------|--------------|
+| 新建系统（requirement_type=new） | **必须** |
+| 新增实体 | **必须** |
+| 实体关系变更（如 1:N 改 N:M） | **必须** |
+| 仅字段变更（无新实体、无关系变更） | 不生成，用 §7.3 字段变更表 |
+| 无数据模型变更 | 不生成 |
 
 ## 绘制注意事项
 

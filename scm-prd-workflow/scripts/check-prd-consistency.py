@@ -62,6 +62,7 @@ ID_PATTERNS = {
     'F': re.compile(r'\bF-(\d{3})\b'),
     'IF': re.compile(r'\bIF-(\d{3})\b'),
     'BR': re.compile(r'\bBR-(\d{3})\b'),
+    'DL': re.compile(r'\bDL-(\d{3})\b'),
 }
 
 # 各 ID 类型的预期定义章节（full 模式）
@@ -169,12 +170,34 @@ def check_fuzzy_words(content):
         ('可配置', '请说明配置项、默认值和配置入口'),
     ]
 
+    # 冗余用语检测
+    redundancy_patterns = [
+        ('进行', '删除"进行"，直接用动词'),
+        ('相关的', '删除"相关的"或明确具体对象'),
+        ('一定程度上', '删除或量化程度'),
+        ('基本上', '删除"基本上"或说明例外'),
+        ('总体来说', '删除"总体来说"'),
+        ('需要注意的是', '删除，直接陈述'),
+        ('众所周知', '删除'),
+        ('不言而喻', '删除，明确说明'),
+    ]
+
+    # 填充句检测
+    filler_patterns = [
+        ('本章是', '删除填充句'),
+        ('以下将详细描述', '删除填充句，直接描述'),
+        ('以下将逐一说明', '删除填充句，直接说明'),
+        ('下面我们来看', '删除填充句'),
+    ]
+
     # 排除词表：包含模糊词但语义明确的合法术语
     exclusions = {
         '及时': ['及时性', '及时率'],
         '一般': ['一般纳税人', '一般贸易', '一般计税'],
         '可能': ['可能性', '不可能'],
         '合理': ['合理性'],
+        '进行': ['进行中', '进行时'],
+        '相关的': ['相关的系统', '相关的接口'],
     }
 
     lines = content.split('\n')
@@ -196,6 +219,31 @@ def check_fuzzy_words(content):
                     'severity': '警告',
                     'type': '模糊用语',
                     'message': f'L{i}: 发现模糊用语 "{word}"',
+                    'suggestion': suggestion,
+                })
+
+        for word, suggestion in redundancy_patterns:
+            if word in line:
+                excluded = False
+                for exc_term in exclusions.get(word, []):
+                    if exc_term in line:
+                        excluded = True
+                        break
+                if excluded:
+                    continue
+                issues.append({
+                    'severity': '信息',
+                    'type': '冗余用语',
+                    'message': f'L{i}: 发现冗余用语 "{word}"',
+                    'suggestion': suggestion,
+                })
+
+        for word, suggestion in filler_patterns:
+            if word in line:
+                issues.append({
+                    'severity': '信息',
+                    'type': '填充句',
+                    'message': f'L{i}: 疑似填充句 "{word}"',
                     'suggestion': suggestion,
                 })
 
@@ -224,6 +272,64 @@ def check_change_coverage(content, lines):
                 'message': f'变更项 {c_full} 未在任何功能点的"关联变更"字段中被引用',
                 'suggestion': f'确认 {c_full} 的实现功能点，并在 Ch.6 中添加关联',
             })
+
+    return issues
+
+
+def check_decision_log_references(content, lines, prd_path):
+    """检查 DL-XXX 交叉引用：PRD 中引用的 DL-XXX 是否在 decision-log.md 中有定义。"""
+    issues = []
+    dl_pattern = ID_PATTERNS.get('DL')
+    if not dl_pattern:
+        return issues
+
+    prd_dl_ids = set(dl_pattern.findall(content))
+    if not prd_dl_ids:
+        return issues
+
+    prd_dir = os.path.dirname(prd_path)
+    dl_path = os.path.join(prd_dir, 'decision-log.md')
+    if not os.path.isfile(dl_path):
+        issues.append({
+            'severity': '警告',
+            'type': 'DL文件缺失',
+            'message': f'PRD 中引用了 DL-XXX 编号，但未找到 decision-log.md',
+            'suggestion': f'在 {prd_dir} 下创建 decision-log.md',
+        })
+        return issues
+
+    with open(dl_path, 'r', encoding='utf-8') as f:
+        dl_content = f.read()
+
+    dl_defined = set(dl_pattern.findall(dl_content))
+    for dl_num in sorted(prd_dl_ids):
+        if dl_num not in dl_defined:
+            issues.append({
+                'severity': '警告',
+                'type': 'DL未定义',
+                'message': f'DL-{dl_num} 在 PRD 中被引用，但在 decision-log.md 中未找到定义',
+                'suggestion': f'在 decision-log.md 中添加 DL-{dl_num} 的决策记录',
+            })
+
+    return issues
+
+
+def check_er_consistency(content, mode):
+    """检查数据模型/ER图一致性。"""
+    issues = []
+    if mode == 'lite':
+        return issues
+
+    has_new_entity = bool(re.search(r'新增.*实体|新增.*表|新建.*系统|是否新增.*是', content))
+    has_er_section = bool(re.search(r'###\s*7\.2\s*数据模型', content))
+
+    if has_new_entity and not has_er_section:
+        issues.append({
+            'severity': '关键',
+            'type': 'ER图缺失',
+            'message': '检测到新增实体/新建系统，但未找到 §7.2 数据模型章节',
+            'suggestion': '在 Ch.7 中添加 §7.2 数据模型，包含 ER 图和实体说明表',
+        })
 
     return issues
 
@@ -258,6 +364,8 @@ def main():
     all_issues.extend(check_id_consistency(content, lines, skip_prefixes, lenient_unreferenced))
     all_issues.extend(check_fuzzy_words(content))
     all_issues.extend(check_change_coverage(content, lines))
+    all_issues.extend(check_er_consistency(content, mode))
+    all_issues.extend(check_decision_log_references(content, lines, prd_path))
 
     # 输出结果
     if not all_issues:
