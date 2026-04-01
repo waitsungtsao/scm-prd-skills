@@ -24,6 +24,10 @@ except ImportError:
     sys.exit(1)
 
 # =============================================================================
+# draw.io 默认 CJK 字体（draw.io 应用自身支持 CSS font-family fallback，
+# 此处为跨平台兼容提供多候选）
+DRAWIO_FONT_FAMILY = "PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif"
+
 # SCM 领域色板
 # =============================================================================
 
@@ -100,9 +104,9 @@ LANE_HEADER_HEIGHT = 30       # 泳道标题栏高度（列顶部）
 LANE_CONTENT_PADDING = 20     # 泳道内容区左右内边距
 ROW_HEIGHT = 100              # 节点行间距（垂直）
 ROW_TOP_PADDING = 20          # 泳道标题与首行节点间距
-ROW_BOTTOM_PADDING = 30       # 末行节点与泳道底部间距
+ROW_BOTTOM_PADDING = 50       # 末行节点与泳道底部间距（含边标签/箭头空间）
 NODE_X_GAP = 20               # 同行多节点水平间距
-DIAGRAM_MARGIN = 20           # 图表外边距
+DIAGRAM_MARGIN = 30           # 图表外边距（含底部安全区防截断）
 TITLE_HEIGHT = 40             # 图表标题高度
 
 # 布局参数 — 普通流程图（无泳道）
@@ -443,7 +447,7 @@ def node_style(node, lane_color_name=None):
         fill = DEFAULT_COLOR['fill']
         stroke = DEFAULT_COLOR['stroke']
 
-    base = f"fillColor={fill};strokeColor={stroke};fontFamily=Microsoft YaHei;fontSize=12;"
+    base = f"fillColor={fill};strokeColor={stroke};fontFamily={DRAWIO_FONT_FAMILY};fontSize=12;"
 
     if ntype == 'decision':
         return f"rhombus;whiteSpace=wrap;html=1;{base}"
@@ -465,7 +469,7 @@ def edge_style(edge_data):
     """根据边样式生成 draw.io style 字符串。"""
     estyle = edge_data.get('style')
     base = "edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;"
-    base += "fontFamily=Microsoft YaHei;fontSize=11;"
+    base += f"fontFamily={DRAWIO_FONT_FAMILY};fontSize=11;"
 
     if estyle == 'error':
         return base + f"strokeColor={COLORS['red']['stroke']};strokeWidth=2;"
@@ -515,9 +519,9 @@ def generate_er_xml(data):
     entity_cell_ids = {}
 
     # 图表标题
-    title_style = ("text;html=1;align=center;verticalAlign=middle;resizable=0;"
-                   "points=[];autosize=0;fontStyle=1;fontSize=16;"
-                   "fontFamily=Microsoft YaHei;")
+    title_style = (f"text;html=1;align=center;verticalAlign=middle;resizable=0;"
+                   f"points=[];autosize=0;fontStyle=1;fontSize=16;"
+                   f"fontFamily={DRAWIO_FONT_FAMILY};")
     tw = page_w - 2 * margin
     lines.append(f'        <mxCell id="{cell_id}" '
                  f'value="{escape(title)}" '
@@ -553,7 +557,7 @@ def generate_er_xml(data):
         table_style = (f"shape=table;startSize={header_h};container=1;collapsible=0;"
                        f"childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;"
                        f"align=center;resizeLast=1;fillColor={fill};strokeColor={stroke};"
-                       f"fontFamily=Microsoft YaHei;fontSize=12;html=1;whiteSpace=wrap;")
+                       f"fontFamily={DRAWIO_FONT_FAMILY};fontSize=12;html=1;whiteSpace=wrap;")
         lines.append(f'        <mxCell id="{ecid}" '
                      f'value="{escape(entity.get("label", eid))}" '
                      f'style="{table_style}" vertex="1" parent="1">')
@@ -570,7 +574,7 @@ def generate_er_xml(data):
             row_style = ("text;strokeColor=none;align=left;verticalAlign=middle;"
                          f"spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;"
                          f"points=[[0,0.5],[1,0.5]];portConstraint=eastwest;"
-                         f"fontFamily=Microsoft YaHei;fontSize=11;html=1;whiteSpace=wrap;")
+                         f"fontFamily={DRAWIO_FONT_FAMILY};fontSize=11;html=1;whiteSpace=wrap;")
             lines.append(f'        <mxCell id="{rcid}" '
                          f'value="{escape(field_label)}" '
                          f'style="{row_style}" vertex="1" parent="{ecid}">')
@@ -592,10 +596,10 @@ def generate_er_xml(data):
         rtype = rel.get('type', '1:N')
         src_card, tgt_card = cardinality_labels.get(rtype, ('', ''))
         label = rel.get('label', '')
-        estyle = ("edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;"
-                  "jettySize=auto;html=1;fontFamily=Microsoft YaHei;fontSize=11;"
-                  "exitX=1;exitY=0.5;exitDx=0;exitDy=0;"
-                  "entryX=0;entryY=0.5;entryDx=0;entryDy=0;")
+        estyle = (f"edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;"
+                  f"jettySize=auto;html=1;fontFamily={DRAWIO_FONT_FAMILY};fontSize=11;"
+                  f"exitX=1;exitY=0.5;exitDx=0;exitDy=0;"
+                  f"entryX=0;entryY=0.5;entryDx=0;entryDy=0;")
         lines.append(f'        <mxCell id="{ecid}" value="{escape(label)}" '
                      f'style="{estyle}" edge="1" source="{entity_cell_ids[rfrom]}" '
                      f'target="{entity_cell_ids[rto]}" parent="1">')
@@ -609,7 +613,7 @@ def generate_er_xml(data):
             cell_id += 1
             lines.append(f'        <mxCell id="{lcid}" value="{src_card}" '
                          f'style="edgeLabel;align=left;verticalAlign=middle;'
-                         f'fontFamily=Microsoft YaHei;fontSize=10;" '
+                         f'fontFamily={DRAWIO_FONT_FAMILY};fontSize=10;" '
                          f'vertex="1" connectable="0" parent="{ecid}">')
             lines.append(f'          <mxGeometry x="-0.8" relative="1" as="geometry"/>')
             lines.append(f'        </mxCell>')
@@ -619,7 +623,7 @@ def generate_er_xml(data):
             cell_id += 1
             lines.append(f'        <mxCell id="{lcid}" value="{tgt_card}" '
                          f'style="edgeLabel;align=right;verticalAlign=middle;'
-                         f'fontFamily=Microsoft YaHei;fontSize=10;" '
+                         f'fontFamily={DRAWIO_FONT_FAMILY};fontSize=10;" '
                          f'vertex="1" connectable="0" parent="{ecid}">')
             lines.append(f'          <mxGeometry x="0.8" relative="1" as="geometry"/>')
             lines.append(f'        </mxCell>')
@@ -662,9 +666,9 @@ def generate_xml(data, node_positions, lane_geometries, diagram_info):
         title_id = cell_id
         cell_id += 1
         tw = diagram_info['total_width'] - 2 * DIAGRAM_MARGIN
-        title_style = ("text;html=1;align=center;verticalAlign=middle;resizable=0;"
-                        "points=[];autosize=0;fontStyle=1;fontSize=16;"
-                        "fontFamily=Microsoft YaHei;")
+        title_style = (f"text;html=1;align=center;verticalAlign=middle;resizable=0;"
+                        f"points=[];autosize=0;fontStyle=1;fontSize=16;"
+                        f"fontFamily={DRAWIO_FONT_FAMILY};")
         lines.append(f'        <mxCell id="{title_id}" '
                      f'value="{escape(data["diagram"]["title"])}" '
                      f'style="{title_style}" vertex="1" parent="1">')
@@ -690,7 +694,7 @@ def generate_xml(data, node_positions, lane_geometries, diagram_info):
 
             lane_style = (f"swimlane;startSize={LANE_HEADER_HEIGHT};horizontal=1;"
                           f"fillColor={lane_fill};strokeColor={lane_stroke};"
-                          f"fontFamily=Microsoft YaHei;fontSize=12;fontStyle=1;"
+                          f"fontFamily={DRAWIO_FONT_FAMILY};fontSize=12;fontStyle=1;"
                           f"collapsible=0;container=1;swimlaneBody=1;")
             lines.append(f'        <mxCell id="{lcid}" '
                          f'value="{escape(lane["label"])}" '

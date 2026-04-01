@@ -4,6 +4,17 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.0] - 2026-04-01
+
+### Fixed
+
+- **中文字体渲染**（yaml2svg.py）：cairosvg 通过 fontconfig 解析字体时，"Microsoft YaHei" 在 macOS 上匹配为 Verdana 导致中文显示为方框。新增运行时 CJK 字体检测（`_detect_cjk_font()`），通过 `fc-match` 验证候选字体可用性，按平台自动选择正确的 CJK 字体（macOS: PingFang SC, Windows: Microsoft YaHei, Linux: Noto Sans CJK SC）
+- **图表底部截断**（yaml2drawio.py）：`ROW_BOTTOM_PADDING` 30→50px，`DIAGRAM_MARGIN` 20→30px，ER 图 SVG 增加 20px 底部安全区，确保边标签和箭头不超出画布
+
+### Changed
+
+- **draw.io XML 字体**（yaml2drawio.py）：`fontFamily` 从硬编码 "Microsoft YaHei" 改为 `DRAWIO_FONT_FAMILY` 常量 "PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif"，跨平台兼容
+
 ## [2026.03.10] - 2026-03-31
 
 ### Added

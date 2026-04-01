@@ -39,7 +39,59 @@ except ImportError:
 # SVG 字体与尺寸
 # =============================================================================
 
-FONT_FAMILY = "Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif"
+# CJK 字体候选列表（按优先级）。cairosvg 使用 fontconfig 解析字体名，
+# 不像浏览器那样做字符级 fallback：如果第一个字体匹配到不支持中文的西文字体
+# （如 "Microsoft YaHei" 在 macOS 上匹配为 Verdana），中文全部显示为方框。
+# 因此必须在运行时检测，把真正可用的 CJK 字体放在最前面。
+_CJK_FONT_CANDIDATES = [
+    "PingFang SC",          # macOS 内置
+    "Microsoft YaHei",      # Windows 内置
+    "Noto Sans CJK SC",     # Linux / 手动安装
+    "Source Han Sans",       # Adobe 版思源黑体
+    "Heiti SC",              # macOS 备选
+    "WenQuanYi Micro Hei",  # Linux 常见
+    "SimHei",               # Windows 备选
+]
+
+
+def _detect_cjk_font():
+    """检测系统中可用的 CJK 字体，返回排好序的 font-family 字符串。
+
+    通过 fontconfig (fc-match) 验证每个候选字体是否真正映射到 CJK 字体
+    （而非 fallback 到 Verdana 等西文字体）。
+    """
+    import subprocess as _sp
+
+    verified = []
+    for candidate in _CJK_FONT_CANDIDATES:
+        try:
+            r = _sp.run(
+                ["fc-match", "--format=%{family}", candidate],
+                capture_output=True, text=True, timeout=3,
+            )
+            matched = r.stdout.strip().split(",")[0].strip()
+            # 只有 fc-match 返回的字体名与候选名一致才算可用
+            if matched.lower() == candidate.lower():
+                verified.append(candidate)
+        except (FileNotFoundError, _sp.TimeoutExpired, OSError):
+            pass
+
+    if not verified:
+        # fc-match 不可用或全部未命中 — 按平台猜测
+        import platform
+        _sys = platform.system()
+        if _sys == "Darwin":
+            verified = ["PingFang SC", "Heiti SC"]
+        elif _sys == "Windows":
+            verified = ["Microsoft YaHei", "SimHei"]
+        else:
+            verified = ["Noto Sans CJK SC", "WenQuanYi Micro Hei"]
+
+    # 拼接 font-family: 已验证的 CJK 字体 + 通用 sans-serif
+    return ", ".join(verified + ["sans-serif"])
+
+
+FONT_FAMILY = _detect_cjk_font()
 FONT_SIZE = 12
 FONT_SIZE_SMALL = 11
 FONT_SIZE_TITLE = 16
@@ -279,14 +331,14 @@ def generate_er_svg(data):
     margin_x, margin_y = 60, 60
     header_h, field_h = 30, 24
     title_h = 40
-    margin = 20
+    margin = 30  # 外边距（含底部安全区防截断）
 
     max_fields = max((len(e.get('fields', [])) for e in entities), default=3)
     entity_max_h = header_h + max_fields * field_h + 8
 
     rows_needed = (len(entities) + col_count - 1) // col_count
     total_w = margin * 2 + col_count * (entity_width + margin_x)
-    total_h = margin * 2 + title_h + margin_y // 2 + rows_needed * (entity_max_h + margin_y)
+    total_h = margin * 2 + title_h + margin_y // 2 + rows_needed * (entity_max_h + margin_y) + 20
 
     # 计算每个实体的位置和实际高度
     entity_positions = {}
