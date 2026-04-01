@@ -40,6 +40,8 @@ COLORS = {
 }
 
 DEFAULT_COLOR = {'fill': '#ffffff', 'stroke': '#000000'}
+# 未指定颜色的泳道使用中性灰蓝色，保持视觉一致性
+DEFAULT_LANE_COLOR = {'fill': '#f0f0f0', 'stroke': '#b0b0b0'}
 
 # 语义样式 → 颜色覆盖
 STYLE_COLORS = {
@@ -443,6 +445,10 @@ def node_style(node, lane_color_name=None):
     elif lane_color_name and lane_color_name in COLORS:
         fill = COLORS[lane_color_name]['fill']
         stroke = COLORS[lane_color_name]['stroke']
+    elif lane_color_name is not None:
+        # 节点在泳道内但泳道未指定颜色 → 用泳道默认色
+        fill = DEFAULT_LANE_COLOR['fill']
+        stroke = DEFAULT_LANE_COLOR['stroke']
     else:
         fill = DEFAULT_COLOR['fill']
         stroke = DEFAULT_COLOR['stroke']
@@ -689,8 +695,8 @@ def generate_xml(data, node_positions, lane_geometries, diagram_info):
                 lane_fill = COLORS[lcolor]['fill']
                 lane_stroke = COLORS[lcolor]['stroke']
             else:
-                lane_fill = '#ffffff'
-                lane_stroke = '#000000'
+                lane_fill = DEFAULT_LANE_COLOR['fill']
+                lane_stroke = DEFAULT_LANE_COLOR['stroke']
 
             lane_style = (f"swimlane;startSize={LANE_HEADER_HEIGHT};horizontal=1;"
                           f"fillColor={lane_fill};strokeColor={lane_stroke};"
@@ -713,7 +719,8 @@ def generate_xml(data, node_positions, lane_geometries, diagram_info):
             cell_id += 1
             node_cell_ids[nid] = ncid
 
-            lane_color = (lane_map[node['lane']].get('color')
+            # '' = 在泳道内但泳道未指定颜色, None = 不在泳道内
+            lane_color = (lane_map[node['lane']].get('color', '')
                           if node.get('lane') in lane_map else None)
             nstyle = node_style(node, lane_color)
             parent_id = lane_cell_ids.get(node.get('lane'), 1)

@@ -24,9 +24,13 @@ from xml.sax.saxutils import escape
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from yaml2drawio import (
     validate, compute_layout, get_node_size,
-    COLORS, DEFAULT_COLOR, STYLE_COLORS,
+    COLORS, DEFAULT_COLOR, DEFAULT_LANE_COLOR, STYLE_COLORS,
     LANE_HEADER_HEIGHT, DIAGRAM_MARGIN, TITLE_HEIGHT,
 )
+
+# SVG 版默认泳道色（与 yaml2drawio.py DEFAULT_LANE_COLOR 对应）
+_DEFAULT_LANE_FILL = DEFAULT_LANE_COLOR['fill']
+_DEFAULT_LANE_STROKE = DEFAULT_LANE_COLOR['stroke']
 
 try:
     import yaml
@@ -168,6 +172,8 @@ def _get_node_color(node, lane_map=None):
         color_name = lane_map[lane_id].get('color')
         if color_name and color_name in COLORS:
             return COLORS[color_name]['fill'], COLORS[color_name]['stroke']
+        # 泳道未指定颜色 → 使用默认泳道色
+        return _DEFAULT_LANE_FILL, _DEFAULT_LANE_STROKE
     return DEFAULT_COLOR['fill'], DEFAULT_COLOR['stroke']
 
 
@@ -278,8 +284,8 @@ def generate_svg(data, node_positions, lane_geometries, diagram_info):
                 fill = COLORS[color_name]['fill']
                 stroke = COLORS[color_name]['stroke']
             else:
-                fill = '#f5f5f5'
-                stroke = '#999'
+                fill = _DEFAULT_LANE_FILL
+                stroke = _DEFAULT_LANE_STROKE
             # 泳道背景
             lines.append(f'<rect x="{lx}" y="{ly}" width="{lw}" height="{lh}" '
                          f'fill="{fill}" stroke="{stroke}" stroke-width="1" opacity="0.3"/>')
