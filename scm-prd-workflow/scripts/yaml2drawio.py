@@ -317,6 +317,145 @@ def topo_sort_nodes(nodes, edges):
 
 
 # =============================================================================
+# 边端口计算（被 yaml2svg.py 和 generate_xml 共用）
+# =============================================================================
+
+# 决策分支标签分类 — 匹配时忽略大小写并 strip
+_PRIMARY_LABELS = frozenset({
+    '是', 'yes', 'y', '通过', '成功', '正常', '一致', '合格', '有',
+})
+_ALTERNATE_LABELS = frozenset({
+    '否', 'no', 'n', '拒绝', '失败', '异常', '差异', '不通过', '不合格',
+    '无', '缺货', '超时',
+})
+
+# 端口常量：(x, y) 相对于节点 bounding box (0..1)
+PORT_BOTTOM = (0.5, 1)
+PORT_TOP    = (0.5, 0)
+PORT_RIGHT  = (1, 0.5)
+PORT_LEFT   = (0, 0.5)
+
+
+def compute_edge_ports(edges, nodes, node_positions, lane_geometries,
+                       is_swimlane=True):
+    """为每条边计算 exit/entry 端口坐标。
+
+    根据节点类型、边标签、源/目标位置关系，自动推断最佳连接端口，
+    解决决策节点分支重叠和跨泳道连线混乱问题。
+
+    返回: dict{ (from_id, to_id): {'exit': (x,y), 'entry': (x,y)} }
+    """
+    node_map = {n['id']: n for n in nodes}
+    # 每个节点的出边列表（保持 YAML 顺序）
+    out_edges = defaultdict(list)
+    for edge in edges:
+        out_edges[edge['from']].append(edge)
+
+    # 获取节点绝对中心坐标
+    def _abs_center(nid):
+        if nid not in node_positions:
+            return (0, 0)
+        rx, ry, nw, nh = node_positions[nid]
+        node = node_map.get(nid, {})
+        lane_id = node.get('lane')
+        ox, oy = 0, 0
+        if lane_id and lane_id in lane_geometries:
+            ox, oy = lane_geometries[lane_id][0], lane_geometries[lane_id][1]
+        return (ox + rx + nw / 2, oy + ry + nh / 2)
+
+    # 获取节点所在泳道的 x 位置（用于判断左/右/同泳道）
+    def _lane_x(nid):
+        node = node_map.get(nid, {})
+        lane_id = node.get('lane')
+        if lane_id and lane_id in lane_geometries:
+            return lane_geometries[lane_id][0]
+        return 0
+
+    def _classify_branch(edge, siblings):
+        """分类决策分支：primary / alternate / tertiary。"""
+        label = edge.get('label', '').strip().lower()
+        if edge.get('style') == 'error':
+            return 'alternate'
+        if label in _ALTERNATE_LABELS:
+            return 'alternate'
+        if label in _PRIMARY_LABELS:
+            return 'primary'
+        # 无法通过标签分类 → 按 YAML 顺序
+        idx = next((i for i, e in enumerate(siblings) if e is edge), 0)
+        if idx == 0:
+            return 'primary'
+        elif idx == 1:
+            return 'alternate'
+        else:
+            return 'tertiary'
+
+    port_map = {}
+
+    for edge in edges:
+        efrom, eto = edge['from'], edge['to']
+        if efrom not in node_positions or eto not in node_positions:
+            continue
+
+        source_node = node_map.get(efrom, {})
+        siblings = out_edges.get(efrom, [])
+        is_decision = source_node.get('type') == 'decision' and len(siblings) >= 2
+
+        # 先算位置关系（exit 端口分配可能需要）
+        sx, sy = _abs_center(efrom)
+        tx, ty = _abs_center(eto)
+        src_lane_x = _lane_x(efrom)
+        tgt_lane_x = _lane_x(eto)
+        same_lane = (src_lane_x == tgt_lane_x)
+        dx, dy = tx - sx, ty - sy
+
+        # ── Exit 端口 ──
+        if is_decision:
+            branch = _classify_branch(edge, siblings)
+            if branch == 'primary':
+                exit_port = PORT_BOTTOM
+            elif branch == 'alternate':
+                # 根据目标位置决定从哪侧出：目标在右侧→右出，在左侧→左出
+                if dx > 0 or same_lane:
+                    exit_port = PORT_RIGHT
+                else:
+                    exit_port = PORT_LEFT
+            else:
+                # 第三条分支：取 alternate 的反方向
+                exit_port = PORT_LEFT if dx > 0 else PORT_RIGHT
+        else:
+            # 非决策节点：泳道模式从底部出，流程模式从右侧出
+            exit_port = PORT_BOTTOM if is_swimlane else PORT_RIGHT
+
+        if exit_port == PORT_BOTTOM:
+            if same_lane or abs(dx) < 50:
+                entry_port = PORT_TOP  # 同泳道垂直下行
+            elif dx > 0:
+                entry_port = PORT_LEFT  # 目标在右侧泳道
+            else:
+                entry_port = PORT_RIGHT  # 目标在左侧泳道
+        elif exit_port == PORT_RIGHT:
+            if dx > 0 and not same_lane:
+                entry_port = PORT_LEFT  # 向右跨泳道
+            elif same_lane and dy > 0:
+                entry_port = PORT_TOP  # 同泳道下方
+            else:
+                entry_port = PORT_TOP if dy > 0 else PORT_BOTTOM
+        elif exit_port == PORT_LEFT:
+            if dx < 0 and not same_lane:
+                entry_port = PORT_RIGHT  # 向左跨泳道
+            elif same_lane and dy > 0:
+                entry_port = PORT_TOP
+            else:
+                entry_port = PORT_TOP if dy > 0 else PORT_BOTTOM
+        else:  # PORT_TOP（回退边）
+            entry_port = PORT_BOTTOM
+
+        port_map[(efrom, eto)] = {'exit': exit_port, 'entry': entry_port}
+
+    return port_map
+
+
+# =============================================================================
 # 布局计算
 # =============================================================================
 
@@ -471,11 +610,17 @@ def node_style(node, lane_color_name=None):
         return f"rounded=1;whiteSpace=wrap;html=1;{base}"
 
 
-def edge_style(edge_data):
-    """根据边样式生成 draw.io style 字符串。"""
+def edge_style(edge_data, exit_port=None, entry_port=None):
+    """根据边样式和端口生成 draw.io style 字符串。"""
     estyle = edge_data.get('style')
-    base = "edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;"
+    base = ("edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;"
+            "jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;")
     base += f"fontFamily={DRAWIO_FONT_FAMILY};fontSize=11;"
+
+    if exit_port:
+        base += f"exitX={exit_port[0]};exitY={exit_port[1]};exitDx=0;exitDy=0;"
+    if entry_port:
+        base += f"entryX={entry_port[0]};entryY={entry_port[1]};entryDx=0;entryDy=0;"
 
     if estyle == 'error':
         return base + f"strokeColor={COLORS['red']['stroke']};strokeWidth=2;"
@@ -752,6 +897,10 @@ def generate_xml(data, node_positions, lane_geometries, diagram_info):
             lines.append(f'        </mxCell>')
 
     # ── 连线（始终挂在顶层 parent="1"，支持跨泳道连线）──
+    port_map = compute_edge_ports(
+        edges, nodes, node_positions, lane_geometries,
+        is_swimlane=(dtype == 'swimlane'),
+    )
     for edge_data in edges:
         efrom = edge_data['from']
         eto = edge_data['to']
@@ -760,7 +909,10 @@ def generate_xml(data, node_positions, lane_geometries, diagram_info):
         ecid = cell_id
         cell_id += 1
 
-        estyle = edge_style(edge_data)
+        ports = port_map.get((efrom, eto), {})
+        estyle = edge_style(edge_data,
+                            exit_port=ports.get('exit'),
+                            entry_port=ports.get('entry'))
         label = escape(edge_data.get('label', ''))
 
         lines.append(f'        <mxCell id="{ecid}" value="{label}" '

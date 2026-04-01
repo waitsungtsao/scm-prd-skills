@@ -23,7 +23,7 @@ from xml.sax.saxutils import escape
 # 复用 yaml2drawio.py 的布局引擎
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from yaml2drawio import (
-    validate, compute_layout, get_node_size,
+    validate, compute_layout, get_node_size, compute_edge_ports,
     COLORS, DEFAULT_COLOR, DEFAULT_LANE_COLOR, STYLE_COLORS,
     LANE_HEADER_HEIGHT, DIAGRAM_MARGIN, TITLE_HEIGHT,
 )
@@ -264,40 +264,72 @@ def _get_node_color(node, lane_map=None):
     return DEFAULT_COLOR['fill'], DEFAULT_COLOR['stroke']
 
 
-def _svg_edge(edge, node_positions, lane_geometries, node_map, lane_map):
-    """渲染单条连线为 SVG 折线。"""
+def _svg_edge(edge, node_positions, lane_geometries, node_map, lane_map,
+              port_info=None):
+    """渲染单条连线为 SVG 折线（端口感知）。"""
     efrom, eto = edge['from'], edge['to']
     if efrom not in node_positions or eto not in node_positions:
         return ''
 
-    # 计算绝对坐标
-    def abs_center(nid):
+    # 节点绝对 bounding box
+    def abs_rect(nid):
         rx, ry, nw, nh = node_positions[nid]
         node = node_map[nid]
         lane_id = node.get('lane')
         ox, oy = 0, 0
         if lane_id and lane_id in lane_geometries:
             ox, oy = lane_geometries[lane_id][0], lane_geometries[lane_id][1]
-        return ox + rx + nw / 2, oy + ry + nh / 2, nw, nh
+        return ox + rx, oy + ry, nw, nh
 
-    sx, sy, sw, sh = abs_center(efrom)
-    tx, ty, tw, th = abs_center(eto)
+    s_ax, s_ay, sw, sh = abs_rect(efrom)
+    t_ax, t_ay, tw, th = abs_rect(eto)
 
-    # 连接点：从源节点边缘到目标节点边缘
-    if abs(ty - sy) > abs(tx - sx):
-        # 主要是垂直方向
-        if ty > sy:
-            y1, y2 = sy + sh / 2, ty - th / 2
-        else:
-            y1, y2 = sy - sh / 2, ty + th / 2
-        points = f"{sx},{y1} {sx},{(y1 + y2) / 2} {tx},{(y1 + y2) / 2} {tx},{y2}"
+    # exit/entry 端口 → 绝对像素坐标
+    if port_info:
+        ex, ey = port_info['exit']
+        nx, ny = port_info['entry']
     else:
-        # 主要是水平方向
-        if tx > sx:
-            x1, x2 = sx + sw / 2, tx - tw / 2
+        ex, ey = 0.5, 1   # 默认：底部出
+        nx, ny = 0.5, 0   # 默认：顶部入
+
+    x1 = s_ax + sw * ex
+    y1 = s_ay + sh * ey
+    x2 = t_ax + tw * nx
+    y2 = t_ay + th * ny
+
+    # 正交折线路由（根据 exit/entry 方向选择路径）
+    if ey == 1:          # exit BOTTOM
+        if ny == 0:      # entry TOP → 垂直 Z 折线
+            mid_y = (y1 + y2) / 2
+            points = f"{x1},{y1} {x1},{mid_y} {x2},{mid_y} {x2},{y2}"
+        elif nx == 0:    # entry LEFT → 下拐右
+            points = f"{x1},{y1} {x1},{y2} {x2},{y2}"
+        elif nx == 1:    # entry RIGHT → 下拐左
+            points = f"{x1},{y1} {x1},{y2} {x2},{y2}"
+        else:            # entry BOTTOM（罕见）
+            mid_y = max(y1, y2) + 30
+            points = f"{x1},{y1} {x1},{mid_y} {x2},{mid_y} {x2},{y2}"
+    elif ex == 1:        # exit RIGHT
+        if nx == 0:      # entry LEFT → 右行 Z 折线
+            mid_x = (x1 + x2) / 2
+            points = f"{x1},{y1} {mid_x},{y1} {mid_x},{y2} {x2},{y2}"
+        elif ny == 0:    # entry TOP → ⌐ 折线（右→下→入）
+            mid_x = max(x1 + 30, (x1 + x2) / 2)
+            points = f"{x1},{y1} {mid_x},{y1} {mid_x},{y2} {x2},{y2}"
         else:
-            x1, x2 = sx - sw / 2, tx + tw / 2
-        points = f"{x1},{sy} {(x1 + x2) / 2},{sy} {(x1 + x2) / 2},{ty} {x2},{ty}"
+            points = f"{x1},{y1} {x2},{y1} {x2},{y2}"
+    elif ex == 0:        # exit LEFT
+        if nx == 1:      # entry RIGHT → 左行 Z 折线
+            mid_x = (x1 + x2) / 2
+            points = f"{x1},{y1} {mid_x},{y1} {mid_x},{y2} {x2},{y2}"
+        elif ny == 0:    # entry TOP
+            mid_x = min(x1 - 30, (x1 + x2) / 2)
+            points = f"{x1},{y1} {mid_x},{y1} {mid_x},{y2} {x2},{y2}"
+        else:
+            points = f"{x1},{y1} {x2},{y1} {x2},{y2}"
+    else:                # exit TOP（回退边）
+        mid_y = min(y1, y2) - 30
+        points = f"{x1},{y1} {x1},{mid_y} {x2},{mid_y} {x2},{y2}"
 
     estyle = edge.get('style', '')
     stroke_color = '#b85450' if estyle == 'error' else '#666'
@@ -308,16 +340,31 @@ def _svg_edge(edge, node_positions, lane_geometries, node_map, lane_map):
     elements.append(f'  <polyline points="{points}" fill="none" stroke="{stroke_color}" '
                     f'stroke-width="{stroke_width}"{dash} marker-end="url(#{ARROW_MARKER_ID})"/>')
 
-    # 边标签
+    # 边标签 — 决策节点出边标签贴近出口，其他放在路径中点
     label = edge.get('label', '')
     if label:
-        # 标签放在连线中点
-        mid_x = (sx + tx) / 2
-        mid_y = (sy + ty) / 2
-        # 如果是垂直线段上的中点，偏移到右侧
-        if abs(sx - tx) < 20:
-            mid_x += 15
-        elements.append(f'  <text x="{mid_x}" y="{mid_y - 6}" text-anchor="middle" '
+        source_is_decision = node_map.get(efrom, {}).get('type') == 'decision'
+        if source_is_decision and port_info:
+            # 标签放在第一段线段中点（紧贴出口端）
+            pts = points.split()
+            p0x, p0y = [float(v) for v in pts[0].split(',')]
+            p1x, p1y = [float(v) for v in pts[1].split(',')]
+            label_x = (p0x + p1x) / 2
+            label_y = (p0y + p1y) / 2
+            # 偏移避免与线段重叠
+            if ey == 1:    # exit bottom → 标签偏右
+                label_x += 15
+            elif ex == 1:  # exit right → 标签偏上
+                label_y -= 10
+            elif ex == 0:  # exit left → 标签偏上
+                label_y -= 10
+        else:
+            label_x = (x1 + x2) / 2
+            label_y = (y1 + y2) / 2
+            if abs(x1 - x2) < 20:
+                label_x += 15
+
+        elements.append(f'  <text x="{label_x}" y="{label_y - 6}" text-anchor="middle" '
                         f'font-family="{FONT_FAMILY}" font-size="{FONT_SIZE_SMALL}" fill="{stroke_color}">'
                         f'{escape(label)}</text>')
 
@@ -385,8 +432,14 @@ def generate_svg(data, node_positions, lane_geometries, diagram_info):
                          f'font-weight="bold" fill="#333">{escape(lane["label"])}</text>')
 
     # 连线（先画，节点覆盖在上面）
+    port_map = compute_edge_ports(
+        edges, nodes, node_positions, lane_geometries,
+        is_swimlane=(dtype == 'swimlane'),
+    )
     for edge in edges:
-        svg = _svg_edge(edge, node_positions, lane_geometries, node_map, lane_map)
+        ports = port_map.get((edge['from'], edge['to']))
+        svg = _svg_edge(edge, node_positions, lane_geometries, node_map, lane_map,
+                        port_info=ports)
         if svg:
             lines.append(svg)
 

@@ -4,6 +4,18 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.2] - 2026-04-01
+
+### Fixed
+
+- **决策节点分支重叠**（yaml2drawio.py, yaml2svg.py）：新增 `compute_edge_ports()` 函数，通过标签语义（是/否/成功/失败等）和目标位置自动分配 exit/entry 端口。决策节点的 primary 分支从底部出，alternate 分支根据目标方向从左/右侧出，消除分支线段重叠
+- **draw.io 边标签错位**（yaml2drawio.py）：`edge_style()` 新增 `exitX/exitY/entryX/entryY` 端口约束，draw.io 不再自行选择连接点导致标签漂移到错误边上
+- **SVG 边标签位置**（yaml2svg.py）：决策节点出边标签改为贴近出口端（第一段线段中点），不再放在全路径中点
+
+### Added
+
+- **交叉跳线**（yaml2drawio.py）：边样式追加 `jumpStyle=arc;jumpSize=6`，draw.io 中连线交叉处显示弧形标记
+
 ## [2026.04.0] - 2026-04-01
 
 ### Fixed
