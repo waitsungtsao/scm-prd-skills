@@ -455,6 +455,141 @@ def compute_edge_ports(edges, nodes, node_positions, lane_geometries,
     return port_map
 
 
+def validate_edge_layout(edges, nodes, node_positions, lane_geometries,
+                         port_map):
+    """校验边布局的几何合理性，返回警告列表。
+
+    校验项（全部为非阻断警告）：
+      V-1  同一节点多条出边共用同一 exit 端口 → 线段可能重叠
+      V-2  边路径穿越非端点节点的 bounding box → 线段遮挡节点
+      V-3  两条边标签坐标距离 <20px → 标签可能重叠
+      V-4  exit 方向与目标方向相反（夹角>90°）→ 路径可能绕路
+    """
+    node_map = {n['id']: n for n in nodes}
+    warnings = []
+
+    # 节点绝对 bounding box
+    def _abs_bbox(nid):
+        if nid not in node_positions:
+            return None
+        rx, ry, nw, nh = node_positions[nid]
+        node = node_map.get(nid, {})
+        lane_id = node.get('lane')
+        ox, oy = 0, 0
+        if lane_id and lane_id in lane_geometries:
+            ox, oy = lane_geometries[lane_id][0], lane_geometries[lane_id][1]
+        return (ox + rx, oy + ry, nw, nh)
+
+    def _abs_center(nid):
+        bb = _abs_bbox(nid)
+        if not bb:
+            return (0, 0)
+        return (bb[0] + bb[2] / 2, bb[1] + bb[3] / 2)
+
+    # ── V-1: 同节点同出口 ──
+    from collections import defaultdict
+    exit_groups = defaultdict(list)  # (source_id, exit_port) → [edge_labels]
+    for (efrom, eto), ports in port_map.items():
+        label = ''
+        for e in edges:
+            if e['from'] == efrom and e['to'] == eto:
+                label = e.get('label', '')
+                break
+        exit_groups[(efrom, ports['exit'])].append(
+            f"{efrom}→{eto}" + (f"({label})" if label else ""))
+    for (src, port), members in exit_groups.items():
+        if len(members) > 1:
+            warnings.append(
+                f"V-1 同出口: 节点 {src} 的 {len(members)} 条出边共用"
+                f" exit={port}: {', '.join(members)}")
+
+    # ── V-2: 边路径穿越节点 ──
+    all_bboxes = {}
+    for n in nodes:
+        bb = _abs_bbox(n['id'])
+        if bb:
+            all_bboxes[n['id']] = bb
+
+    def _segment_crosses_bbox(x1, y1, x2, y2, bx, by, bw, bh, margin=5):
+        """简化检测：轴对齐线段是否穿过 bbox（缩小 margin 避免端点误报）。"""
+        bx1, by1 = bx + margin, by + margin
+        bx2, by2 = bx + bw - margin, by + bh - margin
+        if x1 == x2:  # 垂直线段
+            miny, maxy = min(y1, y2), max(y1, y2)
+            return bx1 < x1 < bx2 and miny < by2 and maxy > by1
+        elif y1 == y2:  # 水平线段
+            minx, maxx = min(x1, x2), max(x1, x2)
+            return by1 < y1 < by2 and minx < bx2 and maxx > bx1
+        return False
+
+    for (efrom, eto), ports in port_map.items():
+        bb_src = _abs_bbox(efrom)
+        bb_tgt = _abs_bbox(eto)
+        if not bb_src or not bb_tgt:
+            continue
+        # 计算起止点
+        ex, ey = ports['exit']
+        nx, ny = ports['entry']
+        x1 = bb_src[0] + bb_src[2] * ex
+        y1 = bb_src[1] + bb_src[3] * ey
+        x2 = bb_tgt[0] + bb_tgt[2] * nx
+        y2 = bb_tgt[1] + bb_tgt[3] * ny
+        # 中间折点（简化：只检查直连线段）
+        segments = [(x1, y1, x2, y2)]
+        if abs(x1 - x2) > 10 and abs(y1 - y2) > 10:
+            mid_y = (y1 + y2) / 2
+            segments = [(x1, y1, x1, mid_y), (x1, mid_y, x2, mid_y),
+                        (x2, mid_y, x2, y2)]
+        for nid, bb in all_bboxes.items():
+            if nid in (efrom, eto):
+                continue
+            for sx1, sy1, sx2, sy2 in segments:
+                if _segment_crosses_bbox(sx1, sy1, sx2, sy2, *bb):
+                    warnings.append(
+                        f"V-2 穿越: 边 {efrom}→{eto} 的路径可能穿过节点 {nid}")
+                    break
+
+    # ── V-3: 标签坐标重叠 ──
+    label_positions = []
+    for (efrom, eto), ports in port_map.items():
+        label = ''
+        for e in edges:
+            if e['from'] == efrom and e['to'] == eto:
+                label = e.get('label', '')
+                break
+        if not label:
+            continue
+        sc = _abs_center(efrom)
+        tc = _abs_center(eto)
+        lx = (sc[0] + tc[0]) / 2
+        ly = (sc[1] + tc[1]) / 2
+        label_positions.append((efrom, eto, label, lx, ly))
+    for i, (f1, t1, l1, x1, y1) in enumerate(label_positions):
+        for f2, t2, l2, x2, y2 in label_positions[i + 1:]:
+            if abs(x1 - x2) < 20 and abs(y1 - y2) < 20:
+                warnings.append(
+                    f"V-3 标签重叠: \"{l1}\"({f1}→{t1}) 与"
+                    f" \"{l2}\"({f2}→{t2}) 坐标过近")
+
+    # ── V-4: 出口方向与目标方向相反 ──
+    for (efrom, eto), ports in port_map.items():
+        ex, ey = ports['exit']
+        sc = _abs_center(efrom)
+        tc = _abs_center(eto)
+        dx, dy = tc[0] - sc[0], tc[1] - sc[1]
+        # exit 方向向量
+        evx = ex - 0.5  # >0 朝右, <0 朝左, 0 中间
+        evy = ey - 0.5  # >0 朝下, <0 朝上, 0 中间
+        # 简化点积检查：exit 方向与 target 方向是否大致一致
+        dot = evx * dx + evy * dy
+        if dot < -30:  # 阈值：允许小角度偏差
+            warnings.append(
+                f"V-4 绕路: 边 {efrom}→{eto} 的 exit={ports['exit']}"
+                f" 与目标方向相反 (dx={dx:.0f}, dy={dy:.0f})")
+
+    return warnings
+
+
 # =============================================================================
 # 布局计算
 # =============================================================================
@@ -988,6 +1123,20 @@ def main():
 
     # 布局计算
     node_positions, lane_geometries, diagram_info = compute_layout(data)
+
+    # 边布局校验
+    dtype = data['diagram'].get('type', 'flow')
+    edges = data.get('edges', [])
+    nodes = data.get('nodes', [])
+    port_map = compute_edge_ports(edges, nodes, node_positions,
+                                  lane_geometries,
+                                  is_swimlane=(dtype == 'swimlane'))
+    layout_warnings = validate_edge_layout(edges, nodes, node_positions,
+                                           lane_geometries, port_map)
+    if layout_warnings:
+        print("边布局校验:", file=sys.stderr)
+        for lw in layout_warnings:
+            print(f"  ⚠ {lw}", file=sys.stderr)
 
     # 生成 XML
     xml = generate_xml(data, node_positions, lane_geometries, diagram_info)

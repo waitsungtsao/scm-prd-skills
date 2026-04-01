@@ -23,7 +23,8 @@ from xml.sax.saxutils import escape
 # 复用 yaml2drawio.py 的布局引擎
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from yaml2drawio import (
-    validate, compute_layout, get_node_size, compute_edge_ports,
+    validate, compute_layout, get_node_size,
+    compute_edge_ports, validate_edge_layout,
     COLORS, DEFAULT_COLOR, DEFAULT_LANE_COLOR, STYLE_COLORS,
     LANE_HEADER_HEIGHT, DIAGRAM_MARGIN, TITLE_HEIGHT,
 )
@@ -661,6 +662,16 @@ def main():
         svg_content = generate_er_svg(data)
     else:
         node_positions, lane_geometries, diagram_info = compute_layout(data)
+        # 边布局校验
+        edges = data.get('edges', [])
+        nodes = data.get('nodes', [])
+        port_map = compute_edge_ports(edges, nodes, node_positions,
+                                      lane_geometries,
+                                      is_swimlane=(dtype == 'swimlane'))
+        layout_warnings = validate_edge_layout(edges, nodes, node_positions,
+                                               lane_geometries, port_map)
+        for lw in layout_warnings:
+            print(f"  ⚠ {lw}", file=sys.stderr)
         svg_content = generate_svg(data, node_positions, lane_geometries, diagram_info)
 
     with open(svg_path, 'w', encoding='utf-8') as f:
