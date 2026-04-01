@@ -452,6 +452,59 @@ def compute_edge_ports(edges, nodes, node_positions, lane_geometries,
 
         port_map[(efrom, eto)] = {'exit': exit_port, 'entry': entry_port}
 
+    # ── 自动修正 pass（顺序重要：先修方向，再修冲突）──
+
+    def _recalc_entry(new_exit, efrom, eto):
+        """根据新的 exit 端口重新计算 entry。"""
+        sx, sy = _abs_center(efrom)
+        tx, ty = _abs_center(eto)
+        dx = tx - sx
+        if new_exit == PORT_BOTTOM:
+            return PORT_TOP if abs(dx) < 50 else (PORT_LEFT if dx > 0 else PORT_RIGHT)
+        elif new_exit == PORT_RIGHT:
+            return PORT_LEFT if dx > 0 else PORT_TOP
+        elif new_exit == PORT_LEFT:
+            return PORT_RIGHT if dx < 0 else PORT_TOP
+        else:
+            return PORT_BOTTOM
+
+    # V-4 修正（先）：exit 方向与目标方向相反 → 翻转 exit
+    for (efrom, eto), ports in port_map.items():
+        ex, ey = ports['exit']
+        sx, sy = _abs_center(efrom)
+        tx, ty = _abs_center(eto)
+        dx, dy = tx - sx, ty - sy
+        evx, evy = ex - 0.5, ey - 0.5
+        if evx * dx + evy * dy < -30:
+            if abs(dy) > abs(dx):
+                new_exit = PORT_BOTTOM if dy > 0 else PORT_TOP
+            else:
+                new_exit = PORT_RIGHT if dx > 0 else PORT_LEFT
+            ports['exit'] = new_exit
+            ports['entry'] = _recalc_entry(new_exit, efrom, eto)
+
+    # V-1 修正（后）：同节点同出口的多条边 → 轮转分配不同端口
+    _ROTATE_PORTS = [PORT_BOTTOM, PORT_RIGHT, PORT_LEFT, PORT_TOP]
+    # 先收集每个源节点已占用的全部出口
+    node_used_exits = defaultdict(set)
+    for (efrom, eto), ports in port_map.items():
+        node_used_exits[efrom].add(ports['exit'])
+
+    exit_usage = defaultdict(list)
+    for (efrom, eto), ports in port_map.items():
+        exit_usage[(efrom, ports['exit'])].append((efrom, eto))
+    for (src, port), keys in exit_usage.items():
+        if len(keys) <= 1:
+            continue
+        # 保留第一条不变，后续轮转到该节点未占用的端口
+        for key in keys[1:]:
+            for candidate in _ROTATE_PORTS:
+                if candidate not in node_used_exits[src]:
+                    port_map[key]['exit'] = candidate
+                    node_used_exits[src].add(candidate)
+                    port_map[key]['entry'] = _recalc_entry(candidate, key[0], key[1])
+                    break
+
     return port_map
 
 
