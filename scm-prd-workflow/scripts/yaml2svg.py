@@ -43,7 +43,7 @@ except ImportError:
 # SVG 字体与尺寸
 # =============================================================================
 
-# CJK 字体候选列表（按优先级）。cairosvg 使用 fontconfig 解析字体名，
+# CJK 字体候选列表（按优先级）。cairosvg 使用 fontconfig/Cairo 解析字体名，
 # 不像浏览器那样做字符级 fallback：如果第一个字体匹配到不支持中文的西文字体
 # （如 "Microsoft YaHei" 在 macOS 上匹配为 Verdana），中文全部显示为方框。
 # 因此必须在运行时检测，把真正可用的 CJK 字体放在最前面。
@@ -55,18 +55,81 @@ _CJK_FONT_CANDIDATES = [
     "Heiti SC",              # macOS 备选
     "WenQuanYi Micro Hei",  # Linux 常见
     "SimHei",               # Windows 备选
+    "Noto Sans SC",         # Noto 非 CJK 合集版
+    "Droid Sans Fallback",  # 旧版 Android / Linux
 ]
+
+# 每个平台的已知字体文件路径（不依赖 fontconfig）
+# 支持 glob 通配符以匹配 macOS Asset 管理的动态哈希路径
+_FONT_FILE_HINTS = {
+    "PingFang SC":        [
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/Supplemental/PingFang.ttc",
+        "/System/Library/AssetsV2/com_apple_MobileAsset_Font*/*/AssetData/PingFang.ttc",
+    ],
+    "Microsoft YaHei":    [
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/msyhl.ttc",
+    ],
+    "Heiti SC":           [
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+    ],
+    "SimHei":             [
+        "C:/Windows/Fonts/simhei.ttf",
+    ],
+    "Noto Sans CJK SC":  [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+    ],
+    "WenQuanYi Micro Hei": [
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/wenquanyi/wqy-microhei/wqy-microhei.ttc",
+    ],
+}
 
 
 def _detect_cjk_font():
-    """检测系统中可用的 CJK 字体，返回排好序的 font-family 字符串。
+    """多层级检测系统可用 CJK 字体，返回 font-family 字符串。
 
-    通过 fontconfig (fc-match) 验证每个候选字体是否真正映射到 CJK 字体
-    （而非 fallback 到 Verdana 等西文字体）。
+    检测策略（按可靠性从高到低）：
+      Layer 1 — fc-list :lang=zh 获取系统所有中文字体，与候选列表取交集
+      Layer 2 — fc-match 逐个验证候选字体名（检查是否映射为自身而非西文）
+      Layer 3 — 扫描已知字体文件路径（不依赖 fontconfig，覆盖 Windows 和无 fc 的 macOS）
+      Layer 4 — 按平台猜测（最终兜底）
+
+    任一层级找到可用字体即停止。
     """
     import subprocess as _sp
 
     verified = []
+
+    # ── Layer 1: fc-list :lang=zh ──
+    # 一次性获取所有支持中文的字体族名，精确且快速
+    try:
+        r = _sp.run(
+            ["fc-list", ":lang=zh", "--format=%{family}\n"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            # fc-list 每行可能是 "Font A,Font B"（多名称），全部拆开
+            system_cjk = set()
+            for line in r.stdout.strip().splitlines():
+                for name in line.split(","):
+                    system_cjk.add(name.strip())
+            # 按候选优先级排序取交集
+            for candidate in _CJK_FONT_CANDIDATES:
+                if candidate in system_cjk:
+                    verified.append(candidate)
+    except (FileNotFoundError, _sp.TimeoutExpired, OSError):
+        pass
+
+    if verified:
+        return ", ".join(verified + ["sans-serif"])
+
+    # ── Layer 2: fc-match 逐个验证 ──
+    # 仅当 fc-list 失败或无结果时使用（比 fc-list 慢且有模糊匹配风险）
     for candidate in _CJK_FONT_CANDIDATES:
         try:
             r = _sp.run(
@@ -74,24 +137,48 @@ def _detect_cjk_font():
                 capture_output=True, text=True, timeout=3,
             )
             matched = r.stdout.strip().split(",")[0].strip()
-            # 只有 fc-match 返回的字体名与候选名一致才算可用
             if matched.lower() == candidate.lower():
                 verified.append(candidate)
         except (FileNotFoundError, _sp.TimeoutExpired, OSError):
-            pass
+            break  # fc-match 本身不可用，跳到 Layer 3
 
-    if not verified:
-        # fc-match 不可用或全部未命中 — 按平台猜测
-        import platform
-        _sys = platform.system()
-        if _sys == "Darwin":
-            verified = ["PingFang SC", "Heiti SC"]
-        elif _sys == "Windows":
-            verified = ["Microsoft YaHei", "SimHei"]
-        else:
-            verified = ["Noto Sans CJK SC", "WenQuanYi Micro Hei"]
+    if verified:
+        return ", ".join(verified + ["sans-serif"])
 
-    # 拼接 font-family: 已验证的 CJK 字体 + 通用 sans-serif
+    # ── Layer 3: 字体文件路径扫描 ──
+    # 不依赖 fontconfig，覆盖 Windows 和无 fc 的 macOS / Docker
+    import glob as _glob
+    for candidate in _CJK_FONT_CANDIDATES:
+        paths = _FONT_FILE_HINTS.get(candidate, [])
+        found = False
+        for pattern in paths:
+            if '*' in pattern:
+                if _glob.glob(pattern):
+                    found = True
+                    break
+            elif os.path.isfile(pattern):
+                found = True
+                break
+        if found:
+            verified.append(candidate)
+
+    if verified:
+        return ", ".join(verified + ["sans-serif"])
+
+    # ── Layer 4: 按平台猜测（兜底） ──
+    import platform
+    _sys = platform.system()
+    if _sys == "Darwin":
+        verified = ["PingFang SC", "Heiti SC"]
+    elif _sys == "Windows":
+        verified = ["Microsoft YaHei", "SimHei"]
+    else:
+        verified = ["Noto Sans CJK SC", "WenQuanYi Micro Hei"]
+
+    print(f"警告: 未能验证 CJK 字体可用性，使用平台默认猜测: {verified[0]}。"
+          f"如中文显示异常，请安装: Noto Sans CJK SC (apt/brew install fonts-noto-cjk)",
+          file=sys.stderr)
+
     return ", ".join(verified + ["sans-serif"])
 
 
