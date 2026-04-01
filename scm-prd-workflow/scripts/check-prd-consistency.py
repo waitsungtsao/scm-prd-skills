@@ -3,9 +3,14 @@
 check-prd-consistency.py — PRD 一致性扫描工具
 
 扫描 PRD 文件，验证：
-1. 交叉引用 ID 完整性（G/C/F/IF/BR 编号是否定义且被引用）
-2. 术语一致性（同一概念是否使用不同名称）
+1. 交叉引用 ID 完整性（分层检查：G/F 必查，C/IF 按需）
+2. 模糊用语和冗余表述
 3. 变更点覆盖（每个变更项是否有对应功能和验收标准）
+
+三层 ID 体系：
+- 第一层（始终检查）：G-XX 目标、F-XXX 功能
+- 第二层（按需检查）：C-XX 变更（update/mixed 时）、IF-XXX 接口（存在时）
+- 第三层（不检查全局一致性）：规则和异常使用局部编号
 
 用法:
     python check-prd-consistency.py <PRD文件路径>
@@ -61,9 +66,12 @@ ID_PATTERNS = {
     'C': re.compile(r'\bC-(\d{2,3})\b'),
     'F': re.compile(r'\bF-(\d{3})\b'),
     'IF': re.compile(r'\bIF-(\d{3})\b'),
-    'BR': re.compile(r'\bBR-(\d{3})\b'),
-    'DL': re.compile(r'\bDL-(\d{3})\b'),
 }
+
+# 第一层 ID（始终检查）
+TIER1_IDS = {'G', 'F'}
+# 第二层 ID（按需检查：C 仅 update/mixed，IF 仅存在时）
+TIER2_IDS = {'C', 'IF'}
 
 # 各 ID 类型的预期定义章节（full 模式）
 DEFINITION_CHAPTERS = {
@@ -71,7 +79,6 @@ DEFINITION_CHAPTERS = {
     'C': '第4章',
     'F': '第6章',
     'IF': '第7章',
-    'BR': '第6章',
 }
 
 # lite 模式章节映射
@@ -276,44 +283,6 @@ def check_change_coverage(content, lines):
     return issues
 
 
-def check_decision_log_references(content, lines, prd_path):
-    """检查 DL-XXX 交叉引用：PRD 中引用的 DL-XXX 是否在 decision-log.md 中有定义。"""
-    issues = []
-    dl_pattern = ID_PATTERNS.get('DL')
-    if not dl_pattern:
-        return issues
-
-    prd_dl_ids = set(dl_pattern.findall(content))
-    if not prd_dl_ids:
-        return issues
-
-    prd_dir = os.path.dirname(prd_path)
-    dl_path = os.path.join(prd_dir, 'decision-log.md')
-    if not os.path.isfile(dl_path):
-        issues.append({
-            'severity': '警告',
-            'type': 'DL文件缺失',
-            'message': f'PRD 中引用了 DL-XXX 编号，但未找到 decision-log.md',
-            'suggestion': f'在 {prd_dir} 下创建 decision-log.md',
-        })
-        return issues
-
-    with open(dl_path, 'r', encoding='utf-8') as f:
-        dl_content = f.read()
-
-    dl_defined = set(dl_pattern.findall(dl_content))
-    for dl_num in sorted(prd_dl_ids):
-        if dl_num not in dl_defined:
-            issues.append({
-                'severity': '警告',
-                'type': 'DL未定义',
-                'message': f'DL-{dl_num} 在 PRD 中被引用，但在 decision-log.md 中未找到定义',
-                'suggestion': f'在 decision-log.md 中添加 DL-{dl_num} 的决策记录',
-            })
-
-    return issues
-
-
 def check_er_consistency(content, mode):
     """检查数据模型/ER图一致性。"""
     issues = []
@@ -351,11 +320,14 @@ def main():
     mode, requirement_type = detect_prd_mode(content)
     print(f"检测到 PRD 模式: {mode}, 需求类型: {requirement_type}")
 
-    # lite 模式不检查 IF/BR（轻量PRD可能不含接口和详细规则编号）
+    # 根据模式和需求类型决定跳过的 ID 前缀
+    skip_prefixes = set()
     if mode == 'lite':
-        skip_prefixes = {'IF', 'BR'}
-    else:
-        skip_prefixes = set()
+        # 轻量模式只检查 G 和 F
+        skip_prefixes = {'C', 'IF'}
+    elif requirement_type == 'new':
+        # 新建类型不检查 C（无变更项）
+        skip_prefixes = {'C'}
 
     # update/mixed 模式下，未引用的 ID 降级为信息（按需生成章节可能导致部分ID只定义不引用）
     lenient_unreferenced = requirement_type in ('update', 'mixed')
@@ -363,9 +335,9 @@ def main():
     all_issues = []
     all_issues.extend(check_id_consistency(content, lines, skip_prefixes, lenient_unreferenced))
     all_issues.extend(check_fuzzy_words(content))
-    all_issues.extend(check_change_coverage(content, lines))
+    if requirement_type in ('update', 'mixed'):
+        all_issues.extend(check_change_coverage(content, lines))
     all_issues.extend(check_er_consistency(content, mode))
-    all_issues.extend(check_decision_log_references(content, lines, prd_path))
 
     # 输出结果
     if not all_issues:

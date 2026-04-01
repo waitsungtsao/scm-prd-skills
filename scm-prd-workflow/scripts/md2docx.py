@@ -18,7 +18,7 @@ import re
 
 try:
     from docx import Document
-    from docx.shared import Inches, Pt, RGBColor
+    from docx.shared import Inches, Pt, RGBColor, Emu
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.oxml.ns import qn, nsdecls
     from docx.oxml import parse_xml
@@ -35,10 +35,33 @@ except ImportError:
 # =============================================================================
 
 MONOSPACE_FONT = "Consolas"
-MONOSPACE_SIZE = Pt(9)
-CODE_BG_COLOR = "E8E8E8"  # light gray for code blocks
-QUALITY_MARKERS = ["[建议]", "[待确认]", "[推断]", "[推测]", "[过时?]", "[矛盾]"]
+MONOSPACE_SIZE = Pt(10)
+CODE_BG_COLOR = "F2F2F2"  # per style guide
+# 提示块类型定义（来自中文 PRD 样式规范）
+# 格式：左侧窄色条 + 右侧浅色背景内容区
+CALLOUT_TYPES = {
+    # marker: (stripe_color, bg_color, label)
+    "[!INFO]":    ("2B5797", "E8F0FE", "信息提示"),
+    "[!CAUTION]": ("E6A817", "FFF8E1", "注意事项"),
+    "[!WARNING]": ("C0392B", "FDECEA", "风险警告"),
+    "[!TIP]":     ("27AE60", "E8F5E9", "最佳实践"),
+    # 自动映射 PRD 标记到提示块
+    "[待确认]":   ("E6A817", "FFF8E1", "待确认"),
+    "[推断]":     ("2B5797", "E8F0FE", "推断"),
+    "[建议]":     ("27AE60", "E8F5E9", "建议"),
+}
+CALLOUT_STRIPE_WIDTH = 120  # DXA
 IMAGE_WIDTH = Inches(6.0)
+
+# 表格样式常量（来自中文 PRD 样式规范）
+TABLE_HEADER_BG = "2B5797"   # 蓝底
+TABLE_HEADER_FG = "FFFFFF"   # 白字
+TABLE_ZEBRA_BG = "F7F7F7"   # 偶数行底色
+TABLE_BORDER_COLOR = "D0D0D0"  # 边框色
+TABLE_FONT_SIZE = Pt(10)
+
+# 模板路径
+_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', 'templates', 'prd-docx-styles.docx')
 
 
 # =============================================================================
@@ -226,6 +249,132 @@ _RE_HR = re.compile(r"^---+\s*$")
 _RE_FRONT_MATTER_DELIM = re.compile(r"^---\s*$")
 
 
+def _apply_fallback_styles(doc):
+    """模板不可用时的降级样式。"""
+    try:
+        style = doc.styles["Normal"]
+        style.font.name = "Microsoft YaHei"
+        style.font.size = Pt(11)
+        style._element.rPr.rFonts.set(qn("w:eastAsia"), "Microsoft YaHei")
+    except KeyError:
+        pass
+
+
+def _set_cell_shading(cell, color_hex):
+    """为表格单元格设置背景色。"""
+    shading_elm = parse_xml(
+        f'<w:shd {nsdecls("w")} w:fill="{color_hex}" w:val="clear"/>'
+    )
+    cell._element.get_or_add_tcPr().append(shading_elm)
+
+
+def _style_table(tbl):
+    """应用表格样式：蓝底白字表头 + 斑马纹 + 统一边框。"""
+    # 设置表格边框
+    tbl_pr = tbl._element.tblPr
+    if tbl_pr is None:
+        tbl_pr = parse_xml(f'<w:tblPr {nsdecls("w")}/>')
+        tbl._element.insert(0, tbl_pr)
+    borders_xml = (
+        f'<w:tblBorders {nsdecls("w")}>'
+        f'  <w:top w:val="single" w:sz="4" w:space="0" w:color="{TABLE_BORDER_COLOR}"/>'
+        f'  <w:left w:val="single" w:sz="4" w:space="0" w:color="{TABLE_BORDER_COLOR}"/>'
+        f'  <w:bottom w:val="single" w:sz="4" w:space="0" w:color="{TABLE_BORDER_COLOR}"/>'
+        f'  <w:right w:val="single" w:sz="4" w:space="0" w:color="{TABLE_BORDER_COLOR}"/>'
+        f'  <w:insideH w:val="single" w:sz="4" w:space="0" w:color="{TABLE_BORDER_COLOR}"/>'
+        f'  <w:insideV w:val="single" w:sz="4" w:space="0" w:color="{TABLE_BORDER_COLOR}"/>'
+        f'</w:tblBorders>'
+    )
+    tbl_pr.append(parse_xml(borders_xml))
+
+    for r_idx, row in enumerate(tbl.rows):
+        for cell in row.cells:
+            if r_idx == 0:
+                # 表头行：蓝底白字加粗
+                _set_cell_shading(cell, TABLE_HEADER_BG)
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.bold = True
+                        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+                        run.font.size = TABLE_FONT_SIZE
+            else:
+                # 数据行：斑马纹
+                if r_idx % 2 == 0:
+                    _set_cell_shading(cell, TABLE_ZEBRA_BG)
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = TABLE_FONT_SIZE
+
+
+def _detect_callout(text):
+    """检测文本是否匹配提示块类型，返回 (marker, content) 或 None。"""
+    for marker in CALLOUT_TYPES:
+        if marker in text:
+            content = text.replace(marker, "", 1).strip()
+            return marker, content
+    return None
+
+
+def _add_callout_block(doc, marker, content):
+    """渲染提示块：左侧窄色条 + 右侧浅色背景内容区（双列无边框表格）。"""
+    stripe_color, bg_color, label = CALLOUT_TYPES[marker]
+
+    tbl = doc.add_table(rows=1, cols=2)
+    tbl.autofit = False
+
+    # 隐藏所有边框
+    tbl_pr = tbl._element.tblPr
+    no_borders = (
+        f'<w:tblBorders {nsdecls("w")}>'
+        '  <w:top w:val="none" w:sz="0" w:space="0"/>'
+        '  <w:left w:val="none" w:sz="0" w:space="0"/>'
+        '  <w:bottom w:val="none" w:sz="0" w:space="0"/>'
+        '  <w:right w:val="none" w:sz="0" w:space="0"/>'
+        '  <w:insideH w:val="none" w:sz="0" w:space="0"/>'
+        '  <w:insideV w:val="none" w:sz="0" w:space="0"/>'
+        '</w:tblBorders>'
+    )
+    tbl_pr.append(parse_xml(no_borders))
+
+    # 左列：窄色条
+    stripe_cell = tbl.cell(0, 0)
+    stripe_cell.width = Emu(CALLOUT_STRIPE_WIDTH * 914)  # DXA to EMU approx
+    tc_pr = stripe_cell._element.get_or_add_tcPr()
+    tc_pr.append(parse_xml(
+        f'<w:shd {nsdecls("w")} w:fill="{stripe_color}" w:val="clear"/>'
+    ))
+    tc_pr.append(parse_xml(
+        f'<w:tcW {nsdecls("w")} w:w="{CALLOUT_STRIPE_WIDTH}" w:type="dxa"/>'
+    ))
+    # 清空默认段落文本
+    stripe_cell.paragraphs[0].text = ""
+
+    # 右列：浅色背景 + 内容
+    content_cell = tbl.cell(0, 1)
+    tc_pr2 = content_cell._element.get_or_add_tcPr()
+    tc_pr2.append(parse_xml(
+        f'<w:shd {nsdecls("w")} w:fill="{bg_color}" w:val="clear"/>'
+    ))
+    # 内容：标签加粗 + 正文（支持多段落）
+    paragraphs = content.split("\n")
+    first_para = True
+    for para_text in paragraphs:
+        if first_para:
+            p = content_cell.paragraphs[0]
+            label_run = p.add_run(f"{label}  ")
+            label_run.bold = True
+            label_run.font.size = Pt(10)
+            label_run.font.color.rgb = RGBColor.from_string(stripe_color)
+            first_para = False
+        else:
+            if not para_text.strip():
+                continue
+            p = content_cell.add_paragraph()
+        _add_formatted_runs(p, para_text)
+        p.paragraph_format.space_before = Pt(2)
+        p.paragraph_format.space_after = Pt(2)
+
+
 def convert(md_path):
     """将 Markdown 文件转换为 .docx，返回输出文件路径。"""
     md_path = os.path.abspath(md_path)
@@ -236,13 +385,20 @@ def convert(md_path):
 
     lines = [l.rstrip("\n") for l in raw_lines]
 
-    doc = Document()
-
-    # -- 默认字体 --
-    style = doc.styles["Normal"]
-    style.font.name = "Microsoft YaHei"
-    style.font.size = Pt(10.5)
-    style._element.rPr.rFonts.set(qn("w:eastAsia"), "Microsoft YaHei")
+    # 加载样式模板（继承字体/标题/页面设置），降级为空文档
+    template = os.path.abspath(_TEMPLATE_PATH)
+    if os.path.isfile(template):
+        doc = Document(template)
+        # 清空模板示例内容，只保留样式和页面设置（sectPr）
+        body = doc.element.body
+        for child in list(body):
+            # 保留 sectPr（页面设置）
+            if child.tag.endswith('}sectPr'):
+                continue
+            body.remove(child)
+    else:
+        doc = Document()
+        _apply_fallback_styles(doc)
 
     # -----------------------------------------------------------------
     # 状态机
@@ -364,60 +520,53 @@ def convert(md_path):
                     row.append("")
 
             num_rows = len(table_rows)
-            tbl = doc.add_table(rows=num_rows, cols=max_cols, style="Table Grid")
+            tbl = doc.add_table(rows=num_rows, cols=max_cols)
 
             for r_idx, row_data in enumerate(table_rows):
                 for c_idx, cell_text in enumerate(row_data):
                     cell = tbl.cell(r_idx, c_idx)
                     _add_formatted_runs_to_cell(cell, cell_text)
-                    # 首行加粗
-                    if r_idx == 0:
-                        for run in cell.paragraphs[0].runs:
-                            run.bold = True
+
+            _style_table(tbl)
 
             continue
 
         # ---- 引用块 ----
         m_bq = _RE_BLOCKQUOTE.match(line)
         if m_bq:
-            bq_lines = []
+            # 收集连续引用块，在空行处分割为独立块
+            all_blocks = []
+            current_block = []
             while i < total:
                 m = _RE_BLOCKQUOTE.match(lines[i])
                 if m:
-                    bq_lines.append(m.group(1))
+                    current_block.append(m.group(1))
                     i += 1
                 elif lines[i].strip() == "":
-                    # 空行可能是引用块内的段落间隔
-                    # 检查下一行是否还是引用
                     if i + 1 < total and _RE_BLOCKQUOTE.match(lines[i + 1]):
-                        bq_lines.append("")
+                        # 空行分隔：保存当前块，开始新块
+                        if current_block:
+                            all_blocks.append(current_block)
+                            current_block = []
                         i += 1
                     else:
                         break
                 else:
                     break
+            if current_block:
+                all_blocks.append(current_block)
 
-            bq_text = "\n".join(bq_lines)
-            p = doc.add_paragraph()
-            p.paragraph_format.left_indent = Inches(0.5)
-
-            # 检查质量标记
-            has_marker = False
-            for marker in QUALITY_MARKERS:
-                if marker in bq_text:
-                    has_marker = True
-                    # 按标记拆分，标记部分加粗
-                    parts = bq_text.split(marker)
-                    for idx, part in enumerate(parts):
-                        if part:
-                            _add_formatted_runs(p, part)
-                        if idx < len(parts) - 1:
-                            mr = p.add_run(marker)
-                            mr.bold = True
-                    break
-
-            if not has_marker:
-                _add_formatted_runs(p, bq_text)
+            # 逐块渲染
+            for block_lines in all_blocks:
+                bq_text = "\n".join(block_lines)
+                callout = _detect_callout(bq_text)
+                if callout:
+                    marker, content = callout
+                    _add_callout_block(doc, marker, content)
+                else:
+                    p = doc.add_paragraph()
+                    p.paragraph_format.left_indent = Inches(0.5)
+                    _add_formatted_runs(p, bq_text)
 
             continue
 

@@ -72,7 +72,7 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 |------|------|---------|---------|
 | Phase 1 | 需求录入 | `intake.md` | 多轮提问，挖掘需求全貌 |
 | Phase 2 | 需求澄清 | `clarification.md` | 逐项确认，消除歧义 |
-| Phase 3 | 方案输出 | `PRD-{名称}.md` + `.docx` | 确认大纲 → 撰写完整PRD + 流程图 |
+| Phase 3 | 方案输出 | `PRD-{名称}.md` + `.docx` | 叙事规划→确认→撰写PRD + 流程图 |
 | Phase 4 | 自检审查 | `review-report.md` | 自动质量检查（CK-0~CK-9）+ 用户审阅 |
 
 **自主模式**使用 Stage A-C（详见"自主生成模式"章节）：
@@ -80,7 +80,7 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 | 阶段 | 名称 | 产出文件 | 核心动作 |
 |------|------|---------|---------|
 | Stage A | 压缩录入 | `intake.md` | 1-2轮对话，快速收集关键信息 |
-| Stage B | 自主生成 | `clarification.md` + `PRD-{名称}.md` + `review-report.md` | 一次性生成全部文件，无用户交互 |
+| Stage B | 自主生成 | `clarification.md` + `PRD-{名称}.md` + `review-report.md` | 叙事规划→大纲确认→一次性撰写全部文件 |
 | Stage C | 审阅迭代 | 更新上述文件 | 用户审阅假设，批量反馈，AI迭代修改 |
 
 **轻量模式**使用 Stage L1-L3（详见 `references/lite-mode.md`）：
@@ -282,15 +282,18 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 
 **产出**：`PRD-{名称}.md` + `.docx` + `decision-log.md`（如有） + `diagrams/`
 
-读取 `references/phase3-write.md`、`references/diagram-patterns.md`、`references/diagram-yaml-schema.md`。
+读取 `references/phase3-write.md`、`references/diagram-patterns.md`、`references/diagram-yaml-schema.md`。**先完成叙事规划，确定 PRD 的表达策略（重点、详略、模块取舍），用户确认后再开始逐章撰写。**
 
-### PRD结构（10章）
+### PRD结构（10章，按叙事规划裁剪）
 
-使用 `templates/prd-template.md`。交叉引用ID体系：G(目标)/C(变更)/F(功能)/IF(接口)/BR(规则)/DL(决策)。
+使用 `templates/prd-template.md` 作为参考菜单（不是必须填满的框架）。三层 ID 体系：
+- **始终使用**：G-XX（目标）、F-XXX（功能）
+- **按需使用**：C-XX（变更，仅update/mixed）、IF-XXX（接口，有新增/变更时）
+- **局部编号**：规则和异常在功能点内部用局部序号，不再全局编号
 
-1. 文档信息 → 2. 需求概述(G-XXX) → 3. 术语 → 4. 变更总览(C-XXX) → 5. 业务流程(标注F-XXX) → 6. 功能与规则(F-XXX+BR-XXX) → 7. 接口与数据(IF-XXX+ER图+字段变更) → 8. NFR → 9. 验收标准(关联G/F) → 10. 待定与附录
+1. 文档信息 → 2. 需求概述(G-XX) → 3. 术语 → 4. 变更总览(C-XX) → 5. 业务流程(标注F-XXX) → 6. 功能与规则(F-XXX) → 7. 接口与数据(IF-XXX) → 8. NFR → 9. 验收标准(关联G/F) → 10. 待定与附录
 
-`requirement_type=update|mixed` 时只生成有实质内容的章节，未涉及方面由PRD尾部统一说明。
+叙事规划中标为"省略"的维度不生成独立章节，由PRD尾部统一说明。
 
 ### 图表格式选择
 
