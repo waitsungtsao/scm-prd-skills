@@ -4,6 +4,18 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.3] - 2026-04-01
+
+### Fixed
+
+- **Word 有序列表编号不重置**（md2docx.py）：不同章节下的有序列表编号连续递增而非从 1 重新开始。新增 `_restart_list_numbering()` 在每个列表块首项注入 Word XML `startOverride val="1"`
+
+### Added
+
+- **边布局自动修正**（yaml2drawio.py）：`compute_edge_ports()` 内置 V-4（方向绕路→翻转）和 V-1（出口重叠→轮转）自动修正，修正在端口计算阶段完成，对外透明
+- **边布局校验 V-1~V-4**（yaml2drawio.py）：新增 `validate_edge_layout()` 检测同出口重叠、路径穿越节点、标签重叠、方向绕路，yaml2drawio.py 和 yaml2svg.py 生成时自动运行
+- **AI 静默修复闭环**（SKILL.md）：图表质量校验章节定义脚本自动修正 + AI 语义审查双层机制，整个检测-修复过程对用户透明
+
 ## [2026.04.2] - 2026-04-01
 
 ### Fixed
