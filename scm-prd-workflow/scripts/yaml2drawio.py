@@ -267,7 +267,7 @@ def validate(data):
 
     # 节点数量警告 (T-3)
     if len(nodes) > 20:
-        warnings.append(f"节点数 ({len(nodes)}) 超过20，建议拆分为多个子图以提高可读性")
+        warnings.append(f"T-3 节点数 ({len(nodes)}) 超过20，评估是否仍服务同一表达意图")
 
     # 节点标签长度检查 (T-2)
     for node in nodes:
@@ -275,6 +275,28 @@ def validate(data):
         if len(label) > 10:
             nid = node.get('id', '?')
             warnings.append(f"节点 {nid} 标签 \"{label}\" 超过10字符，可能溢出节点框")
+
+    # 结构参考数据 (T-4) — 供 AI 规划参考，不做拆分建议
+    multi_out_nodes = []
+    for node in nodes:
+        nid = node.get('id', '?')
+        out_count = sum(1 for e in edges if e.get('from') == nid)
+        if out_count > 1:
+            multi_out_nodes.append(f"{nid}({out_count}出边)")
+
+    cross_lane_count = 0
+    dtype = data.get('diagram', {}).get('type', 'flow')
+    if dtype == 'swimlane':
+        node_lane = {n['id']: n.get('lane') for n in nodes}
+        cross_lane_count = sum(
+            1 for e in edges
+            if node_lane.get(e.get('from')) != node_lane.get(e.get('to'))
+        )
+
+    if multi_out_nodes or cross_lane_count > 3:
+        warnings.append(
+            f"T-4 结构参考: 多出边节点={', '.join(multi_out_nodes) or '无'}; "
+            f"跨泳道边={cross_lane_count}")
 
     return errors, warnings
 
@@ -409,6 +431,8 @@ def compute_edge_ports(edges, nodes, node_positions, lane_geometries,
         dx, dy = tx - sx, ty - sy
 
         # ── Exit 端口 ──
+        has_multi_out = len(siblings) >= 2
+
         if is_decision:
             branch = _classify_branch(edge, siblings)
             if branch == 'primary':
@@ -422,8 +446,16 @@ def compute_edge_ports(edges, nodes, node_positions, lane_geometries,
             else:
                 # 第三条分支：取 alternate 的反方向
                 exit_port = PORT_LEFT if dx > 0 else PORT_RIGHT
+        elif has_multi_out:
+            # 非决策节点但有多条出边 → 按目标位置分配端口
+            if same_lane or abs(dx) < 50:
+                exit_port = PORT_BOTTOM  # 同泳道目标：底部出
+            elif dx > 0:
+                exit_port = PORT_RIGHT   # 右侧泳道目标：右出
+            else:
+                exit_port = PORT_LEFT    # 左侧泳道目标：左出
         else:
-            # 非决策节点：泳道模式从底部出，流程模式从右侧出
+            # 单出边：泳道模式从底部出，流程模式从右侧出
             exit_port = PORT_BOTTOM if is_swimlane else PORT_RIGHT
 
         if exit_port == PORT_BOTTOM:
