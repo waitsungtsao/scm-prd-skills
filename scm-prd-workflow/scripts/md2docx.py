@@ -123,6 +123,75 @@ def _set_paragraph_shading(paragraph, color_hex):
 
 
 # =============================================================================
+# 有序列表编号重置
+# =============================================================================
+
+# 缓存 ListNumber 样式的 abstractNumId（文档级，只查一次）
+_list_number_abstract_id = None
+_next_num_id_counter = None
+
+
+def _restart_list_numbering(paragraph):
+    """强制当前段落的有序列表从 1 重新编号。
+
+    通过在 Word numbering.xml 中创建新的 <w:num> 引用同一 abstractNumId
+    但附加 <w:startOverride val="1"/>，然后在段落 pPr 中注入该 numId。
+    """
+    global _list_number_abstract_id, _next_num_id_counter
+
+    numbering_el = paragraph.part.numbering_part.element
+
+    # 首次调用：查找 ListNumber 样式的 abstractNumId 和最大 numId
+    if _list_number_abstract_id is None:
+        for abstract in numbering_el.findall(qn('w:abstractNum')):
+            abs_id = abstract.get(qn('w:abstractNumId'))
+            for lvl in abstract.findall(qn('w:lvl')):
+                pStyle = lvl.find(qn('w:pStyle'))
+                if pStyle is not None and pStyle.get(qn('w:val')) == 'ListNumber':
+                    _list_number_abstract_id = abs_id
+                    break
+            if _list_number_abstract_id:
+                break
+        _next_num_id_counter = max(
+            int(n.get(qn('w:numId')))
+            for n in numbering_el.findall(qn('w:num'))
+        ) + 1
+
+    if _list_number_abstract_id is None:
+        return  # 未找到 ListNumber 定义，跳过
+
+    # 创建新的 num 元素
+    new_id = _next_num_id_counter
+    _next_num_id_counter += 1
+    new_num = parse_xml(
+        f'<w:num {nsdecls("w")} w:numId="{new_id}">'
+        f'  <w:abstractNumId w:val="{_list_number_abstract_id}"/>'
+        f'  <w:lvlOverride w:ilvl="0">'
+        f'    <w:startOverride w:val="1"/>'
+        f'  </w:lvlOverride>'
+        f'</w:num>'
+    )
+    numbering_el.append(new_num)
+
+    # 在段落 pPr 中注入 numPr 覆盖样式继承的编号
+    pPr = paragraph._element.find(qn('w:pPr'))
+    if pPr is None:
+        pPr = parse_xml(f'<w:pPr {nsdecls("w")}/>')
+        paragraph._element.insert(0, pPr)
+    numPr = parse_xml(
+        f'<w:numPr {nsdecls("w")}>'
+        f'  <w:ilvl w:val="0"/>'
+        f'  <w:numId w:val="{new_id}"/>'
+        f'</w:numPr>'
+    )
+    pStyle = pPr.find(qn('w:pStyle'))
+    if pStyle is not None:
+        pStyle.addnext(numPr)
+    else:
+        pPr.insert(0, numPr)
+
+
+# =============================================================================
 # 水平分割线
 # =============================================================================
 
@@ -375,12 +444,16 @@ def convert(md_path):
         # ---- 有序列表 ----
         m_ol = _RE_OL.match(line)
         if m_ol:
+            is_first_item = True
             while i < total:
                 m = _RE_OL.match(lines[i])
                 if m:
                     text = m.group(2)
                     p = doc.add_paragraph(style="List Number")
                     _add_formatted_runs(p, text)
+                    if is_first_item:
+                        _restart_list_numbering(p)
+                        is_first_item = False
                     i += 1
                 elif lines[i].strip() == "":
                     if i + 1 < total and _RE_OL.match(lines[i + 1]):
