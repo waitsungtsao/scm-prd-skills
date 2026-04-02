@@ -670,7 +670,7 @@ const mdPath = process.argv[2];
 if (!mdPath) { console.error("用法: node md2docx.mjs <PRD.md>"); process.exit(1); }
 if (!fs.existsSync(mdPath)) { console.error(`错误: 文件不存在 — ${mdPath}`); process.exit(1); }
 
-const outPath = mdPath.replace(/\.md$/, "-js.docx");
+const outPath = mdPath.replace(/\.md$/, ".docx");
 Packer.toBuffer(buildDoc(mdPath)).then(buf => {
   fs.writeFileSync(outPath, buf);
   console.log(`✓ 已生成: ${outPath}`);
