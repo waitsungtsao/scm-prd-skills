@@ -4,16 +4,20 @@
  *
  * 基于 scm-prd-style 规范的 Markdown→Word 转换器。
  * 用法: node md2docx.mjs <PRD.md文件路径>
- * 依赖: npm install docx  (在 scripts/ 目录下)
+ * 依赖: npm install docx（在用户项目根目录下执行）
  */
 import fs from "fs";
 import path from "path";
-import {
+import { createRequire } from "module";
+
+// 从 cwd 解析 docx 包（用户项目目录的 node_modules），而非脚本所在目录
+const require = createRequire(path.join(process.cwd(), "package.json"));
+const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   Header, Footer, AlignmentType, LevelFormat, HeadingLevel,
   BorderStyle, WidthType, ShadingType, PageBreak, PageNumber,
   TabStopType, TabStopPosition,
-} from "docx";
+} = require("docx");
 
 // ── DESIGN TOKENS (与 scm-prd-style/references/design-tokens.md 一致) ──
 const C = {

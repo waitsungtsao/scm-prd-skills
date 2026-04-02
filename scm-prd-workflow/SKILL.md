@@ -115,7 +115,7 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 4. **扫描已有 PRD**：检查 `requirements/` 下已有的 PRD 文件，提取关键规则���接口定义，作为"已有约束"��入当前需求，避免跨需求���盾
    - **并行约束**：此扫描仅覆盖已写入文件的 PRD。如有其他对话窗口正在同时制作 PRD，它们之间互不可见。建议避免在多个会话中同时为同一系统域并行生产 PRD，以免产出矛盾的规则或接口定义
 5. **检测 Node.js + docx 环境**（Word 生成推荐方案）：
-   - 在技能安装目录的 `scripts/` 下执行 `node -e "require('docx'); console.log('ok')"`
+   - 在用户项目目录下执行 `node -e "require('docx'); console.log('ok')"`
    - 成功 → `node_docx_available = true`，`docx_engine = "js"`
    - 失败 → `node_docx_available = false`，继续检测 Python 降级方案
 6. **检测 Python 环境**（跨平台）：依次尝试以下命令，使用第一个成功的：
@@ -445,8 +445,8 @@ Word 生成引擎选择（JS 优先，Python 降级）：
 | 条件 | 行为 |
 |------|------|
 | `docx_engine = "js"` | 使用 `scripts/md2docx.mjs`（默认推荐，排版精度最高） |
-| `docx_engine = "python"` | 降级使用 `scripts/md2docx.py`，同时提示用户安装 JS 环境以获得更好排版：`cd scripts && npm install docx` |
-| `docx_engine = null` | 不生成 Word，提示安装：`cd scripts && npm install docx`（推荐）或 `pip install python-docx` |
+| `docx_engine = "python"` | 降级使用 `scripts/md2docx.py`，同时提示用户安装 JS 环境以获得更好排版：`npm install docx` |
+| `docx_engine = null` | 不生成 Word，提示安装：`npm install docx`（推荐）或 `pip install python-docx` |
 
 **原则**：只要当前未使用 JS 方案，每次生成 Word 时都提示用户安装 JS 依赖。
 
@@ -456,7 +456,7 @@ Word 生成引擎选择（JS 优先，Python 降级）：
 |------|------|
 | cairosvg 不可用 | 仅输出 .svg，Word 中图表位置用占位文字 |
 | mermaid.ink 不可达 | Mermaid 图保留 .mermaid 源文件 |
-| JS + Python 均不可用 | 不生成 Word，提示 `cd scripts && npm install docx`（推荐）或 `pip install python-docx` |
+| JS + Python 均不可用 | 不生成 Word，提示 `npm install docx`（推荐）或 `pip install python-docx` |
 
 ### 表注语法
 
