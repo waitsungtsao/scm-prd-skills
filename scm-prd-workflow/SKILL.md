@@ -115,7 +115,7 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 4. **扫描已有 PRD**：检查 `requirements/` 下已有的 PRD 文件，提取关键规则���接口定义，作为"已有约束"��入当前需求，避免跨需求���盾
    - **并行约束**：此扫描仅覆盖已写入文件的 PRD。如有其他对话窗口正在同时制作 PRD，它们之间互不可见。建议避免在多个会话中同时为同一系统域并行生产 PRD，以免产出矛盾的规则或接口定义
 5. **检测 Node.js + docx 环境**（Word 生成推荐方案）：
-   - 在用户项目目录下执行 `node -e "require('docx'); console.log('ok')"`
+   - 在用户项目目录下执行 `node -e "require('docx')"` 或 `node -e "import('docx')"`（兼容 CommonJS 和 ESM 两种模块系统，任一成功即可）
    - 成功 → `node_docx_available = true`，`docx_engine = "js"`
    - 失败 → `node_docx_available = false`，继续检测 Python 降级方案
 6. **检测 Python 环境**（跨平台）：依次尝试以下命令，使用第一个成功的：
