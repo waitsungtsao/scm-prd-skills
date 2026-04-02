@@ -4,20 +4,36 @@
  *
  * 基于 scm-prd-style 规范的 Markdown→Word 转换器。
  * 用法: node md2docx.mjs <PRD.md文件路径>
- * 依赖: npm install docx（在用户项目根目录下执行）
+ * 依赖: npm install -g docx（全局安装，也兼容本地 node_modules）
  */
 import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
+import { execSync } from "child_process";
 
-// 从 cwd 解析 docx 包（用户项目目录的 node_modules），而非脚本所在目录
-const require = createRequire(path.join(process.cwd(), "package.json"));
+// 依赖解析：优先本地 node_modules → 其次全局（支持 npm install -g docx）
+function loadDocx() {
+  // 1. 尝试本地 node_modules（兼容项目级安装）
+  try {
+    const localReq = createRequire(path.join(process.cwd(), "package.json"));
+    return localReq("docx");
+  } catch {}
+  // 2. 尝试全局 node_modules
+  try {
+    const globalRoot = execSync("npm root -g", { encoding: "utf-8" }).trim();
+    const globalReq = createRequire(path.join(path.dirname(globalRoot), "_resolve.js"));
+    return globalReq("docx");
+  } catch {}
+  console.error("错误: 需要 docx 库。请运行: npm install -g docx");
+  process.exit(1);
+}
+
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   Header, Footer, AlignmentType, LevelFormat, HeadingLevel,
   BorderStyle, WidthType, ShadingType, PageBreak, PageNumber,
   TabStopType, TabStopPosition,
-} = require("docx");
+} = loadDocx();
 
 // ── DESIGN TOKENS (与 scm-prd-style/references/design-tokens.md 一致) ──
 const C = {
@@ -50,7 +66,8 @@ const CALLOUT_MAP = {
 };
 
 // Feature heading 类型配色（与 scm-prd-style 对齐）
-// 用于 PRD 中以 ID 标记开头的 H3 级标题（Markdown ####），渲染为彩色左边条 + 浅色背景
+// #### F-xxx → H3 featureHeading（粗左边条 + 浅色背景）
+// ##### F-xxx.x → H4 subFeatureHeading（细左边条，无背景）
 const FEAT_TYPES = {
   feature:   { dark: "1E3F6F", light: "E8EEF5" },  // F-xxx   功能点（蓝色系）
   api:       { dark: "155E3D", light: "E6F4ED" },  // IF-xxx  接口（绿色系）
@@ -323,8 +340,8 @@ function parseMarkdown(text) {
       continue;
     }
 
-    // Heading: # → title, ## → H1, ### → H2, #### → H3
-    const hm = line.match(/^(#{1,4})\s+(.+)$/);
+    // Heading: # → title, ## → H1, ### → H2, #### → H3, ##### → H4
+    const hm = line.match(/^(#{1,5})\s+(.+)$/);
     if (hm) {
       const mdLv = hm[1].length;
       const htxt = hm[2].trim();
@@ -440,21 +457,23 @@ function buildDoc(mdPath) {
     switch (el.type) {
       case "heading": {
         flushTableGap();
-        const headingLevels = [null, HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3];
-        const headingSizes = [0, 36, 28, 24];
-        const headingColors = [0, C.black, C.primary, C.darkGray];
+        const headingLevels = [null, HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4];
+        const headingSizes = [0, 36, 28, 24, 22];
+        const headingColors = [0, C.black, C.primary, C.darkGray, C.primary];
 
-        // #### F-xxx / IF-xxx 等 → featureHeading（彩色左边条 H3）
-        const feat = el.level === 3 ? detectFeatType(el.text) : null;
+        // #### F-xxx / IF-xxx 等 → featureHeading（彩色左边条 + 浅背景）
+        // ##### F-xxx.x 等 → subFeatureHeading（细左边条，无背景）
+        const feat = (el.level === 3 || el.level === 4) ? detectFeatType(el.text) : null;
         if (feat) {
           const ft = FEAT_TYPES[feat];
+          const isSub = el.level === 4;
           content.push(para(
-            parseInline(el.text, { size: 24, color: ft.dark, bold: true }),
+            parseInline(el.text, { size: isSub ? 22 : 24, color: ft.dark, bold: true }),
             {
-              heading: HeadingLevel.HEADING_3,
-              border: { left: { style: BorderStyle.SINGLE, size: 12, color: ft.dark, space: 8 } },
-              shading: { fill: ft.light, type: ShadingType.CLEAR },
-              indent: { left: 120 },
+              heading: isSub ? HeadingLevel.HEADING_4 : HeadingLevel.HEADING_3,
+              border: { left: { style: BorderStyle.SINGLE, size: isSub ? 8 : 12, color: ft.dark, space: 8 } },
+              ...(isSub ? {} : { shading: { fill: ft.light, type: ShadingType.CLEAR } }),
+              indent: { left: isSub ? 240 : 120 },
             }
           ));
         } else {
@@ -590,7 +609,7 @@ function buildDoc(mdPath) {
           run: { size: 24, bold: true, font: FONT_CN, color: C.darkGray },
           paragraph: { keepNext: true, spacing: { before: 240, after: 120 }, outlineLevel: 2 } },
         { id: "Heading4", name: "Heading 4", basedOn: "Normal", next: "Normal", quickFormat: true,
-          run: { size: 22, bold: true, font: FONT_CN, color: C.midGray },
+          run: { size: 22, bold: true, font: FONT_CN, color: C.primary },
           paragraph: { keepNext: true, spacing: { before: 200, after: 100 }, outlineLevel: 3 } },
       ],
     },

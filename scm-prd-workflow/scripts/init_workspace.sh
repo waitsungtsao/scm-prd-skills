@@ -75,13 +75,15 @@ fi
 # docx 包应安装在用户项目目录（工作目录），不是 skill 安装目录
 NODE_DOCX="false"
 DOCX_ENGINE="none"
-if node -e "require('docx'); console.log('ok')" >/dev/null 2>&1 || node -e "import('docx').then(() => console.log('ok'))" >/dev/null 2>&1; then
+if node -e "require('docx'); console.log('ok')" >/dev/null 2>&1 || \
+   node -e "import('docx').then(() => console.log('ok'))" >/dev/null 2>&1 || \
+   NODE_PATH=$(npm root -g 2>/dev/null) node -e "require('docx'); console.log('ok')" >/dev/null 2>&1; then
     NODE_DOCX="true"
     DOCX_ENGINE="js"
     echo "✓ 检测到 Node.js + docx 环境（Word 生成推荐方案）"
 else
     echo "⚠ 未检测到 Node.js + docx，Word 生成将尝试 Python 降级"
-    echo "  推荐安装：npm install docx（在项目根目录下执行）"
+    echo "  推荐安装：npm install -g docx（全局安装）"
 fi
 
 # 检测 Python 环境

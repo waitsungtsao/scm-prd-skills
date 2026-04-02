@@ -116,9 +116,9 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 4. **扫描已有 PRD**：检查 `requirements/` 下已有的 PRD 文件，提取关键规则���接口定义，作为"已有约束"��入当前需求，避免跨需求���盾
    - **并行约束**：此扫描仅覆盖已写入文件的 PRD。如有其他对话窗口正在同时制作 PRD，它们之间互不可见。建议避免在多个会话中同时为同一系统域并行生产 PRD，以免产出矛盾的规则或接口定义
 5. **检测 Node.js + docx 环境**（Word 生成推荐方案）：
-   - 在用户项目目录下执行 `node -e "require('docx')"` 或 `node -e "import('docx')"`（兼容 CommonJS 和 ESM 两种模块系统，任一成功即可）
-   - 成功 → `node_docx_available = true`，`docx_engine = "js"`
-   - 失败 → `node_docx_available = false`，继续检测 Python 降级方案
+   - 依次尝试：`node -e "require('docx')"` → `node -e "import('docx')"` → `NODE_PATH=$(npm root -g) node -e "require('docx')"`（依次检测本地 CJS → 本地 ESM → 全局安装）
+   - 任一成功 → `node_docx_available = true`，`docx_engine = "js"`
+   - 全部失败 → `node_docx_available = false`，继续检测 Python 降级方案
 6. **检测 Python 环境**（跨平台）：依次尝试以下命令，使用第一个成功的：
    - `python3 -c "import yaml; print('ok')"`（macOS / Linux 优先）
    - `python -c "import yaml; print('ok')"`（Windows 常见）
@@ -132,7 +132,45 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
    - `{python_cmd} -c "import urllib.request; urllib.request.urlopen('https://mermaid.ink/img/Z3JhcGggVEQKICAgIEFbU3RhcnRd', timeout=5); print('ok')"` → `mermaid_ink_available`（Mermaid 图片导出）
    - 如果 `node_docx_available = false` 且 `python_docx_available = true` → `docx_engine = "python"`
    - 如果两者均不可用 → `docx_engine = null`
-8. **模式确认门控**（MC-01）：根据用户输入推荐模式，使用 `AskUserQuestion` 让用户确认
+8. **环境状态播报与依赖引导**（ENV-01）：检测完成后输出环境摘要，缺失关键依赖时引导用户选择安装或降级（详见下方"环境状态播报"章节）
+9. **模式确认门控**（MC-01）：根据用户输入推荐模式，使用 `AskUserQuestion` 让用户确认
+
+### 环境状态播报（ENV-01）
+
+初始化检测（步骤 5-7）完成后，**始终**输出环境状态摘要。如有关键依赖缺失，使用 `AskUserQuestion` 引导用户选择。
+
+**摘要格式**（全部就绪时标题用"环境就绪"，有缺失时用"环境状态"）：
+
+```
+━━━ 环境就绪 ━━━
+  Word 引擎  : JS (docx)           ✓
+  Python     : python3              ✓
+  PyYAML     : 已安装               ✓
+  cairosvg   : 未安装 → SVG only    ⚠
+━━━━━━━━━━━━━━━
+```
+
+- 缺失项用 `⚠` 标记并注明降级方案；可用项用 `✓` 标记
+- 此摘要为纯展示，不阻断流程（除非 Word 引擎缺失需引导）
+
+**Word 依赖引导**（`docx_engine != "js"` 时触发）：
+
+使用 `AskUserQuestion`：
+
+> header: "Word 依赖"
+> 问题: "当前未检测到 Node.js docx 库，Word 文档{将使用 Python 降级方案（排版精度较低） / 生成不可用}。\n\n请选择处理方式："
+> 选项：
+> - **安装依赖（推荐）**：运行 **`npm install -g docx`** 安装到全局环境
+> - **使用降级方案**：{使用 Python 生成 / 仅输出 Markdown，不生成 Word}
+> - **稍后处理**：跳过，在交付阶段再决定
+
+用户选择"安装依赖"时：
+1. 执行 `npm install -g docx`
+2. 验证：`NODE_PATH=$(npm root -g) node -e "require('docx')"`
+3. 成功 → 更新 `docx_engine = "js"`，输出：`━━━ 环境已更新 ━━━\n  Word 引擎  : JS (docx)  ✓`
+4. 失败 → 告知具体原因（权限不足 / npm 不可用 / 网络问题），回退展示降级选项（去掉"安装依赖"）
+
+用户选择"稍后处理"时：按当前 `docx_engine` 值继续，交付阶段生成 Word 前再次提示（参见"图表导出与 Word 生成"章节）。
 
 ### 模式确认门控
 
@@ -251,7 +289,8 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 
 | ID | 名称 | 所在文件 | 触发时机 |
 |----|------|---------|---------|
-| MC-01 | 模式确认 | SKILL.md | Skill启动后 |
+| ENV-01 | 环境状态播报 | SKILL.md | 初始化检测完成后 |
+| MC-01 | 模式确认 | SKILL.md | ENV-01 后 |
 | MT-01 | 需求类型确认 | SKILL.md | 模式确认后 |
 | CD-01 | 章节详略选择 | phase3-write.md / autonomous-mode.md / lite-mode.md | 叙事规划输出后、撰写前（全模式） |
 | SL-01 | 轻量审阅反馈 | lite-mode.md | Stage L3 |
@@ -325,6 +364,24 @@ question: "【章节详略选择】请选择需要重点展开的章节"
 ```
 
 **例外**：MC-01（模式确认）和 MT-01（需求类型）在进度计数之前发生，保持原有 header 不变。
+
+#### 第 4 层：全局高亮
+
+环境状态、依赖安装提示、关键警告等系统级信息使用统一高亮格式，确保用户在终端中快速识别。
+
+| 元素 | 格式 | 用途 |
+|------|------|------|
+| 状态框 | `━━━ {标题} ━━━` + 缩进 key:value 行 + `━━━━━` 底线 | 环境摘要、安装结果 |
+| 就绪标记 | 行尾 `✓` | 依赖/步骤可用 |
+| 警告标记 | 行尾 `⚠` + 降级说明 | 依赖缺失但有降级 |
+| 推荐命令 | **\`command\`**（加粗 + 代码格式） | 推荐安装命令高亮 |
+| 关键警告 | `⚠ **关键词**：说明` | 阻断性问题提醒 |
+
+**使用原则**：
+- `━━━` 状态框仅用于**全局状态汇总**（环境摘要、路线图），不用于普通问题
+- 安装命令始终用反引号包裹，推荐项额外加粗
+- `✓` / `⚠` 仅用于状态框内的行尾标记，不在正文中使用
+- 依赖安装提醒随对应操作就近展示（如 Word 生成时提示 docx 安装），不单独弹出
 
 #### 迭代不改步骤编号
 
@@ -460,7 +517,7 @@ PRD 中以 ID 标记开头的 `####` 级标题（如 `#### F-001 货主报关开
 
 1. 先检查 Python 是否已安装但缺少 PyYAML：
    - `python3 --version`（或 `python --version`、`py -3 --version`）
-   - 如 Python 存在但 `import yaml` 失败 → 提示 `pip install pyyaml`
+   - 如 Python 存在但 `import yaml` 失败 → 提示 `{python_cmd} -m pip install pyyaml`
    - 如 Python 不存在 → 告知用户需要先安装 Python 3.8+
 
 2. 尝试安装 PyYAML：
@@ -546,11 +603,11 @@ Word 生成引擎选择（JS 优先，Python 降级）：
 
 | 条件 | 行为 |
 |------|------|
-| `docx_engine = "js"` | 使用 `scripts/md2docx.mjs`（默认推荐，排版精度最高） |
-| `docx_engine = "python"` | 降级使用 `scripts/md2docx.py`，同时提示用户安装 JS 环境以获得更好排版：`npm install docx` |
-| `docx_engine = null` | 不生成 Word，提示安装：`npm install docx`（推荐）或 `pip install python-docx` |
+| `docx_engine = "js"` | 使用 `NODE_PATH=$(npm root -g) node scripts/md2docx.mjs`（默认推荐，排版精度最高） |
+| `docx_engine = "python"` | 降级使用 `scripts/md2docx.py`，同时提示：⚠ **`npm install -g docx`** 可获得更好排版 |
+| `docx_engine = null` | 不生成 Word，提示安装：**`npm install -g docx`**（推荐）或 `pip install python-docx` |
 
-**原则**：只要当前未使用 JS 方案，每次生成 Word 时都提示用户安装 JS 依赖。
+**原则**：只要当前未使用 JS 方案，每次生成 Word 时都以 `⚠` 高亮提示用户安装 JS 依赖。依赖安装始终使用全局方式（`-g`），不在项目目录创建 `node_modules`。
 
 **其他降级策略**：
 
@@ -558,7 +615,7 @@ Word 生成引擎选择（JS 优先，Python 降级）：
 |------|------|
 | cairosvg 不可用 | 仅输出 .svg，Word 中图表位置用占位文字 |
 | mermaid.ink 不可达 | Mermaid 图保留 .mermaid 源文件 |
-| JS + Python 均不可用 | 不生成 Word，提示 `npm install docx`（推荐）或 `pip install python-docx` |
+| JS + Python 均不可用 | 不生成 Word，提示 **`npm install -g docx`**（推荐）或 `pip install python-docx` |
 
 ### 表注语法
 
