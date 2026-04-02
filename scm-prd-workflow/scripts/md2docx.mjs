@@ -67,7 +67,7 @@ const CALLOUT_MAP = {
 
 // Feature heading 类型配色（与 scm-prd-style 对齐）
 // #### F-xxx → H3 featureHeading（粗左边条 + 浅色背景）
-// ##### F-xxx.x → H4 subFeatureHeading（细左边条，无背景）
+// ##### F-xxx.x → H4 subFeatureHeading（浅色背景，无左边条）
 const FEAT_TYPES = {
   feature:   { dark: "1E3F6F", light: "E8EEF5" },  // F-xxx   功能点（蓝色系）
   api:       { dark: "155E3D", light: "E6F4ED" },  // IF-xxx  接口（绿色系）
@@ -462,7 +462,7 @@ function buildDoc(mdPath) {
         const headingColors = [0, C.black, C.primary, C.darkGray, C.primary];
 
         // #### F-xxx / IF-xxx 等 → featureHeading（彩色左边条 + 浅背景）
-        // ##### F-xxx.x 等 → subFeatureHeading（细左边条，无背景）
+        // ##### F-xxx.x 等 → subFeatureHeading（浅背景，无左边条）
         const feat = (el.level === 3 || el.level === 4) ? detectFeatType(el.text) : null;
         if (feat) {
           const ft = FEAT_TYPES[feat];
@@ -471,8 +471,8 @@ function buildDoc(mdPath) {
             parseInline(el.text, { size: isSub ? 22 : 24, color: ft.dark, bold: true }),
             {
               heading: isSub ? HeadingLevel.HEADING_4 : HeadingLevel.HEADING_3,
-              border: { left: { style: BorderStyle.SINGLE, size: isSub ? 8 : 12, color: ft.dark, space: 8 } },
-              ...(isSub ? {} : { shading: { fill: ft.light, type: ShadingType.CLEAR } }),
+              ...(isSub ? {} : { border: { left: { style: BorderStyle.SINGLE, size: 12, color: ft.dark, space: 8 } } }),
+              shading: { fill: ft.light, type: ShadingType.CLEAR },
               indent: { left: isSub ? 240 : 120 },
             }
           ));
