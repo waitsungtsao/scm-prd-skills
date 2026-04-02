@@ -5,7 +5,7 @@ export-diagrams.py — 批量生成 draw.io 并导出图表为 PNG 图片
 遍历指定目录，处理 .diagram.yaml 和 .mermaid 文件：
 - .diagram.yaml → yaml2drawio.py → .drawio（默认生成，供用户手动编辑）
 - .diagram.yaml → yaml2svg.py → .svg + .png (需 cairosvg)
-- .mermaid → mermaid.ink API → .png (需联网)
+- .mermaid → mmdc 本地 → .png (优先) 或 mermaid.ink API → .png (远程兜底)
 
 .drawio 生成失败不阻断 PNG 导出流程。
 
@@ -134,9 +134,54 @@ def export_diagram_yaml(yaml_path: Path, force: bool) -> str:
         return "failed"
 
 
+def _mmdc_available() -> bool:
+    """检测本地 mermaid-cli (mmdc) 是否可用。"""
+    import shutil
+    return shutil.which("mmdc") is not None
+
+
+def _export_mermaid_mmdc(mermaid_path: Path, png_path: Path) -> bool:
+    """尝试用本地 mmdc 导出，成功返回 True。附带 CJK 字体栈和跨平台 Puppeteer 配置。"""
+    scripts_dir = Path(__file__).resolve().parent
+    css_file = scripts_dir / "mmdc-cjk.css"
+    puppeteer_cfg = scripts_dir / "mmdc-puppeteer.json"
+
+    cmd = ["mmdc", "-i", str(mermaid_path), "-o", str(png_path), "-b", "white", "-s", "2"]
+    if css_file.exists():
+        cmd += ["-C", str(css_file)]
+    if puppeteer_cfg.exists():
+        cmd += ["-p", str(puppeteer_cfg)]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, timeout=60)
+        if result.returncode == 0 and png_path.exists():
+            print(f"  导出 (mmdc): {mermaid_path.name} -> .png")
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def _export_mermaid_ink(mermaid_path: Path, png_path: Path, content: str) -> bool:
+    """尝试用 mermaid.ink API 导出，成功返回 True。
+    注意: 会将图表内容发送到第三方服务器，含敏感业务流程时建议安装 mmdc 本地渲染。
+    """
+    encoded = base64.urlsafe_b64encode(content.encode("utf-8")).decode("ascii")
+    url = f"https://mermaid.ink/img/{encoded}?type=png&bgColor=white"
+    try:
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0 (scm-prd-skill)"})
+        resp = urlopen(req, timeout=30)
+        png_path.write_bytes(resp.read())
+        print(f"  导出 (mermaid.ink): {mermaid_path.name} -> .png")
+        return True
+    except Exception:
+        return False
+
+
 def export_mermaid(mermaid_path: Path, force: bool) -> str:
     """
-    导出 .mermaid → .png（经由 mermaid.ink API）。
+    导出 .mermaid → .png。
+    优先级：本地 mmdc → mermaid.ink API → 失败。
 
     返回: "success" | "skipped" | "failed"
     """
@@ -153,23 +198,20 @@ def export_mermaid(mermaid_path: Path, force: bool) -> str:
         print(f"  失败: 无法读取 {mermaid_path.name} — {exc}", file=sys.stderr)
         return "failed"
 
-    # base64 URL-safe 编码
-    encoded = base64.urlsafe_b64encode(content.encode("utf-8")).decode("ascii")
-    url = f"https://mermaid.ink/img/{encoded}?type=png&bgColor=white"
-
-    try:
-        req = Request(url, headers={"User-Agent": "Mozilla/5.0 (scm-prd-skill)"})
-        resp = urlopen(req, timeout=30)
-        png_path.write_bytes(resp.read())
-        print(f"  导出: {mermaid_path.name} -> .png")
+    # 1. 本地 mmdc 优先
+    if _mmdc_available() and _export_mermaid_mmdc(mermaid_path, png_path):
         return "success"
-    except URLError as exc:
-        reason = getattr(exc, 'reason', str(exc))
-        print(f"  跳过 (网络不可用): {mermaid_path.name} — {reason}", file=sys.stderr)
-        return "failed"
-    except Exception as exc:
-        print(f"  失败: {mermaid_path.name} — {exc}", file=sys.stderr)
-        return "failed"
+
+    # 2. mermaid.ink 远程兜底（隐私提示：图表内容将发送到第三方服务器）
+    if not hasattr(export_mermaid, "_ink_warned"):
+        print("  ⚠ 隐私提示: mmdc 不可用，将使用 mermaid.ink 远程渲染（图表内容会发送到第三方服务器）", file=sys.stderr)
+        print("    建议安装本地渲染: npm install -g @mermaid-js/mermaid-cli", file=sys.stderr)
+        export_mermaid._ink_warned = True
+    if _export_mermaid_ink(mermaid_path, png_path, content):
+        return "success"
+
+    print(f"  失败: {mermaid_path.name} — mmdc 不可用且 mermaid.ink 不可达", file=sys.stderr)
+    return "failed"
 
 
 # =============================================================================

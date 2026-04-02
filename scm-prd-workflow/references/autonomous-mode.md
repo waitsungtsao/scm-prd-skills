@@ -14,11 +14,7 @@
 
 ### 模式触发关键词
 
-| 模式 | 关键词 |
-|------|--------|
-| 轻量模式 | "轻量模式""快速出PRD""简版PRD""精简模式""简单需求""常规改动""小改动" |
-| 交互模式 | "交互模式""逐步讨论""我想一步步来""详细讨论""切换到交互模式" |
-| 自主模式 | "自主模式""快速出吧""直接帮我写""自主生成"或无特殊关键词 |
+详见 `SKILL.md` "模式触发关键词"章节。
 
 ### 模式切换时机
 
@@ -204,13 +200,13 @@
 2. **推导假设** → 输出 `clarification.md`（AI基于信息缺口自主推导，标记假设依据）
 3. **叙事规划 + PRD 大纲** → 输出叙事规划和大纲供用户确认（详见下方"PRD 大纲确认"）
 4. **撰写PRD** → 读取 `references/phase3-write.md` 和 `references/diagram-patterns.md`，按叙事规划的详略策略逐章撰写。叙事规划中标为"省略"的维度不生成独立章节，标为"精简"的维度简练描述，标为"重点"的维度充分展开。在需要高亮关键信息处使用提示块（`[!INFO]`/`[!CAUTION]`/`[!WARNING]`/`[!TIP]`），`[推断]`和`[待确认]`标记在 Word 输出时自动渲染为对应提示块样式
-4.5. **记录决策** → 撰写过程中遇到多方案选择时，同步写入 `decision-log.md`（使用 `templates/decision-log-template.md`）。当 `[推断]` 涉及多方案选择时，应同时创建决策记录
-5. **绘制流程图** → 保存到 `diagrams/` 目录。`python_available = true` 时**默认生成** `.diagram.yaml` + `.drawio` + `.mermaid`；`python_available = false` 时按 SKILL.md "draw.io 生成降级策略 DG-01" 处理（引导安装依赖或降级，不阻断流程）
-5.5. **导出图表** → 调用 `scripts/export-diagrams.py` 统一处理 .drawio 生成 + .svg/.png 导出（.drawio 生成失败不阻断 PNG 导出）
-   5.6. **生成 Word** → 按 `docx_engine` 选择引擎：`"js"` 时调用 `node scripts/md2docx.mjs`（推荐），`"python"` 时调用 `{python_cmd} scripts/md2docx.py`（降级），`null` 时跳过并提示安装
-6. **一致性扫描** → 如 Python 可用，执行 `{python_cmd} scripts/check-prd-consistency.py` 验证 ID 交叉引用和模糊用语；发现关键问题先自动修复
-7. **执行自检** → 读取 `references/phase4-review.md`，执行 CK-0 到 CK-9 全部检查
-8. **生成报告** → 输出 `review-report.md`
+5. **记录决策** → 撰写过程中遇到多方案选择时，同步写入 `decision-log.md`（使用 `templates/decision-log-template.md`）。当 `[推断]` 涉及多方案选择时，应同时创建决策记录
+6. **绘制流程图** → 保存到 `diagrams/` 目录。`python_available = true` 时**默认生成** `.diagram.yaml` + `.drawio` + `.mermaid`；`python_available = false` 时按 `references/diagram-patterns.md` "draw.io 生成降级策略 DG-01" 处理（引导安装依赖或降级，不阻断流程）
+7. **导出图表** → 调用 `scripts/export-diagrams.py` 统一处理 .drawio 生成 + .svg/.png 导出（.drawio 生成失败不阻断 PNG 导出）
+8. **生成 Word** → 按 `docx_engine` 选择引擎：`"js"` 时调用 `node scripts/md2docx.mjs`（推荐），`"python"` 时调用 `{python_cmd} scripts/md2docx.py`（降级），`null` 时跳过并提示安装
+9. **一致性扫描** → 如 Python 可用，执行 `{python_cmd} scripts/check-prd-consistency.py` 验证 ID 交叉引用和模糊用语；发现关键问题先自动修复
+10. **执行自检** → 读取 `references/phase4-review.md`，执行 CK-0 到 CK-9 全部检查
+11. **生成报告** → 输出 `review-report.md`
 
 ### PRD 大纲确认（叙事规划）
 
@@ -387,17 +383,19 @@ Stage B 完成后，按以下顺序向用户呈现：
 | 中 | 影响次要流程、操作效率或单系统内部行为 | 异常处理策略、通知方式、日志级别、批量操作上限 |
 | 低 | 仅影响展示/体验层面，不影响业务正确性 | 字段排序、默认排序方向、提示文案、页面布局细节 |
 
-**第一层：高影响假设**（≤10个，优先呈现）
+**第一层：高影响假设**（≤10个，优先呈现，**全部需显式确认**）
+
+**重要**：高影响项无论类型（`[待确认]` 或 `[推断]`）均需用户显式确认，不适用静默确认机制。这避免了用户因"没仔细看就跳过"而让高风险假设生效。
 
 ```markdown
-## 假设总览 — 高影响项（需重点关注）
+## 假设总览 — 高影响项（需逐一确认）
 
 以下假设如果判断有误，将直接影响核心业务逻辑或数据安全。请逐一审阅。
 
 | # | 类型 | 章节 | 假设内容 | 若判断有误的影响 | 状态 |
 |---|------|------|---------|----------------|------|
 | 1 | [待确认] | 5.2 | 库存不足时仅通知，不自动采购 | 可能导致缺货无法自动补货，影响履约 | 待审阅 |
-| 2 | [待确认] | 6 F-002 | 审批金额阈值为5万元 | 阈值过高/过低直接影响风控 | 待审阅 |
+| 2 | [推断] | 6 F-002 | 审批金额阈值为5万元 | 阈值过高/过低直接影响风控 | 待审阅 |
 ```
 
 **第二层：中低影响假设**（高影响项确认后再呈现）
@@ -534,21 +532,8 @@ Stage B 完成后，按以下顺序向用户呈现：
 
 ### 最终交付（SC-06）
 
-所有假设确认、自检通过后，使用 `AskUserQuestion` 并发确认最终交付选项（2个问题同时提出）：
+交付流程的完整定义（交付选项、Word 生成、交付精要、知识库导入）见 `references/phase4-review.md` "最终交付"章节。自主模式额外增加一步：
 
-> 问题1（header: "交付选项", multiSelect）: "PRD 最终输出选项？（Markdown 始终包含）"
-> 选项：
-> - **Word 文档** — 同时生成 .docx 格式
-> - **交付精要** — 生成一页摘要：关键假设、跨系统依赖、风险提示
-> 问题2（header: "知识库"）: "是否有需要补充到知识库的新业务信息？" → **有，需要补充** / **没有**
-
-确认后执行：
-1. 更新PRD版本号（移除所有标记后的版本）
-2. 按选择的格式生成文件
-3. 如选中"交付精要"→ 生成 `delivery-brief.md`（提取规则见 phase4-review.md "交付精要提取规则"章节）；如同时选中 Word → 也生成 `delivery-brief.docx`
-4. 将所有产出文件列表呈现给用户
-5. 如 `diagrams/` 目录包含 `.drawio` 文件，提示用户："流程图也已输出为 draw.io 格式（`diagrams/*.drawio`），如需调整布局或细节可用 draw.io 编辑器打开编辑"
-6. 如用户选择补充知识库，引导使用 scm-knowledge-curator 技能
 7. 如果叙事规划的 CD-01 中用户选中了"原型演示"，进入 Stage D
 
 ---

@@ -1,0 +1,11 @@
+# SCM PRD Workflow — Python 依赖
+# 安装: pip install -r requirements.txt
+
+# 必需（YAML 泳道图生成）
+pyyaml>=5.0
+
+# 可选（Word 生成降级方案，推荐使用 npm install -g docx 的 JS 方案）
+# python-docx>=0.8
+
+# 可选（SVG → PNG 转换，用于 Word 图片嵌入）
+# cairosvg>=2.5

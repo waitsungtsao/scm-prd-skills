@@ -1,0 +1,11 @@
+/* mmdc CJK 字体栈 — 确保 Mermaid 图表中文正常渲染 */
+* {
+  font-family:
+    "PingFang SC",           /* macOS */
+    "Microsoft YaHei",       /* Windows */
+    "Noto Sans CJK SC",      /* Linux (Google Noto) */
+    "Source Han Sans SC",    /* Linux (Adobe) */
+    "WenQuanYi Micro Hei",  /* Linux (开源) */
+    "Hiragino Sans GB",     /* macOS fallback */
+    sans-serif !important;
+}

@@ -802,3 +802,105 @@ relationships:
    - Mermaid 图表：保存为 `.mermaid` 文件
    - YAML 泳道图/复杂流程：保存为 `.diagram.yaml` 文件，转换后生成同名 `.drawio` 文件
    - 示例：`diagrams/main-flow.diagram.yaml` → `diagrams/main-flow.drawio`
+
+---
+
+## draw.io 生成降级策略（DG-01）
+
+当需要生成 YAML → draw.io 格式的图表但环境不满足时，按以下流程处理。核心原则：**尽最大努力生成 draw.io，失败时清晰告知原因并提供降级方案，绝不因图表问题阻断 PRD 输出**。
+
+### 首次触发时机
+
+在 PRD 撰写过程中，首次遇到需要生成 YAML → draw.io 的图表（泳道图、>12节点流程、>5实体ER图）且 `python_available = false` 时触发。
+
+### 第一步：告知原因并提供安装引导
+
+使用 `AskUserQuestion`：
+
+> header: "图表依赖"
+> 问题: "泳道图/复杂流程图需要 Python + PyYAML 环境来生成 .drawio 文件，但当前未检测到可用环境。\n\n请选择处理方式："
+> 选项：
+> - **安装依赖（推荐）**：我来帮你尝试安装 Python 环境和 PyYAML
+> - **仅保留 YAML 源文件**：输出 .diagram.yaml 但不生成 .drawio，你可以稍后手动转换
+> - **改用 Mermaid**：使用 Mermaid subgraph 替代泳道图（布局精度会降低）
+
+### 第二步：尝试安装（用户选择"安装依赖"时）
+
+按以下顺序尝试安装，**每步失败后立即告知用户原因**：
+
+1. 先检查 Python 是否已安装但缺少 PyYAML：
+   - `python3 --version`（或 `python --version`、`py -3 --version`）
+   - 如 Python 存在但 `import yaml` 失败 → 提示 `{python_cmd} -m pip install pyyaml`
+   - 如 Python 不存在 → 告知用户需要先安装 Python 3.8+
+
+2. 尝试安装 PyYAML：
+   - `{python_cmd} -m pip install pyyaml`
+   - 安装成功 → 重新验证 `{python_cmd} -c "import yaml; print('ok')"` → 更新 `python_available = true`、`python_cmd`
+   - 安装失败 → 记录失败原因（权限不足 / pip 不可用 / 网络问题），告知用户
+
+3. **安装成功**：通知用户"环境已就绪"，后续自动生成 .drawio，继续 PRD 流程
+4. **安装失败**：告知具体原因，进入第三步
+
+### 第三步：安装失败后的降级选择
+
+安装失败后，使用 `AskUserQuestion`：
+
+> header: "安装未成功"
+> 问题: "{具体失败原因}。\n\n你可以稍后手动安装后重新运行，或选择降级方案继续："
+> 选项：
+> - **仅保留 YAML 源文件**：输出 .diagram.yaml，后续可通过 `python yaml2drawio.py` 手动转换
+> - **改用 Mermaid**：使用 Mermaid subgraph 替代（布局精度会降低）
+
+用户选择后，**记录本次会话的降级决策**（`diagram_fallback = yaml_only | mermaid`），后续同类图表不再重复询问，直接按选定方案执行。
+
+### 降级后的行为
+
+- **yaml_only 模式**：生成 `.diagram.yaml` 源文件，在 PRD 中以文字描述"流程图见 `diagrams/xxx.diagram.yaml`，需 Python 环境转换为 .drawio"替代图表占位
+- **mermaid 模式**：将泳道图改用 Mermaid `graph TD` + `subgraph` 实现，标注"此图为 Mermaid 简化版，精确泳道版需 Python 环境"
+- 两种降级模式下，PRD 文档末尾增加提示："本PRD中部分图表因环境限制使用了降级格式，安装 Python + PyYAML 后可运行 `python scripts/export-diagrams.py diagrams/` 生成完整 .drawio 文件"
+
+### yaml2drawio.py 运行时错误处理
+
+即使 `python_available = true`，`yaml2drawio.py` 转换仍可能因 YAML 语法错误、节点引用错误等失败。此时：
+
+1. 读取错误输出，**自动修复** YAML 中的问题（拼写错误、缺失引用等）
+2. 重试转换（最多 2 次自动修复重试）
+3. 仍然失败 → 保留 `.diagram.yaml` 源文件，告知用户"draw.io 转换失败，已保留 YAML 源文件，错误信息：{具体错误}"
+4. **不阻断 PRD 流程**，继续后续章节撰写
+
+---
+
+## 图表质量校验（自动 + AI 双层）
+
+图表生成后、导出前，执行双层质量校验。**整个校验-修复过程对用户透明**，用户只看到最终输出的图表文件，不看到中间的检测和修复过程。
+
+**第一层：脚本自动检测 + 自动修正（生成时，<10ms）**
+
+`compute_edge_ports()` 在计算端口时**内置自动修正**，先修 V-4（方向绕路）再修 V-1（出口重叠），确保大多数几何问题在生成阶段就已消除。`validate_edge_layout()` 在修正后再次检测残留问题：
+
+| 编号 | 检查项 | 脚本自动修正 | 残留时的 AI 处理 |
+|------|--------|------------|----------------|
+| V-1 | 同出口重叠 | ✅ 轮转分配不同端口 | 如仍残留：调整边顺序或拆分节点 |
+| V-2 | 路径穿越节点 | ❌ 需改 YAML 结构 | 调整节点层级或拆图 |
+| V-3 | 标签重叠 | ❌ 需改标签文字 | 缩短标签或调整边顺序 |
+| V-4 | 方向绕路 | ✅ 翻转 exit 方向 | 如因 V-1 折中无法修正：评估是否需要拆图 |
+
+**第二层：AI 静默修复（撰写时，用户无感知）**
+
+在 PRD 撰写阶段生成每张 `.diagram.yaml` 后，AI **内部**执行以下检查-修复闭环，**不向用户展示中间过程**：
+
+1. 运行 `yaml2drawio.py` / `yaml2svg.py` 生成图表，读取 stderr 中的 V-1~V-4 警告
+2. 如有残留警告（V-2/V-3 或 V-1/V-4 因冲突无法自动修正）：
+   - 分析警告原因
+   - **直接修改 `.diagram.yaml`**（调整边顺序、缩短标签、调整节点层级、或拆分为多张图）
+   - 重新运行生成脚本
+3. AI 同时读 `.diagram.yaml` 源文件检查**语义合理性**：
+   - 决策节点是否遗漏了分支（如只有"是"没有"否"）
+   - 流程是否有孤立节点（无入边也无出边）
+   - 跨泳道连线是否符合实际系统交互方向
+   - 如发现问题，同样**直接修改 YAML 并重新生成**
+4. 最多 **2 轮**自动修正。仍有残留警告则保留当前版本
+5. **最终输出给用户的只有**：生成完成的图表文件（`.diagram.yaml` + `.drawio` + `.svg`）
+6. 修复历史记录到 `review-report.md` 的"图表质量"章节（供事后追溯，不主动展示）
+
+**原则**：用户感知到的是"图表直接就生成好了"，不需要知道中间经历了几轮检测和修正。只有在 2 轮修正后仍有严重问题（V-2 路径穿越）时，才在交付阶段简要提示用户可在 draw.io 中手动微调。

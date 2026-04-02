@@ -60,6 +60,7 @@ Stage D / Post-review: 原型设计与生成
 - PT-02 "跳过原型" → 等价于事后撤回 PT-01，流程干净退出
 - PT-02 迭代不限轮次（设计对话没有收敛压力，用户说确认才算确认）
 - PT-03 "需要修改" 回到 PT-02 而非直接改代码（设计方案是 source of truth）
+- **原型必须零外部依赖**：产出的 `bundle.html` 必须是完全自包含的单文件，所有 JS/CSS 内联，不依赖任何外部 CDN（如 jsdelivr、tailwindcss.com 等）。用户双击即可在浏览器中打开，无需联网、无需安装任何工具。使用 `web-artifacts-builder` 打包可自动满足此要求；如不使用打包工具直接生成 HTML，必须手动内联所有依赖
 
 ---
 
@@ -73,7 +74,7 @@ Stage D / Post-review: 原型设计与生成
 | T2 | 复杂状态机 | Ch.5 状态图 ≥4 状态 | 状态转换在表格中极难推演 |
 | T3 | 屏幕级 AS-IS→TO-BE | C-XX 涉及 UI 字段/操作变更 | 前后对比在可视原型中最直观 |
 | T4 | 多步分支流程 | F-XXX 步骤-规则表 ≥4 步 + 异常分支 | 分支逻辑在文字中容易丢失 |
-| T5 | 列表/批量操作 | F-XXX 涉及列表页、批量动作、新筛选维度 | 列表信息密度无法用文字描述 |
+| T5 | **新增**列表/批量操作 | F-XXX 新增列表页、新增批量动作、新增筛选维度（对已有列表的小修改不触发） | 列表信息密度无法用文字描述 |
 
 ### 反触发（不做原型的场景）
 
@@ -93,7 +94,8 @@ Stage D / Post-review: 原型设计与生成
   ├─ 扫描 F-XXX 步骤表 → ≥4 步+分支？→ 检查 T4
   └─ 扫描 F-XXX 描述 → 列表/批量？→ 检查 T5
   │
-  ├─ 命中任一 + 无反触发 → 建议生成原型
+  ├─ 命中 ≥2 条 + 无反触发 → 建议生成原型
+  ├─ 命中 1 条 → 不主动建议，但在 CD-01 中保留选项供用户主动选择
   └─ 无命中 或 全命中反触发 → 不生成原型
 ```
 
@@ -312,6 +314,19 @@ Step 2: 原型设计方案（PRD 确认后独立阶段）
 - 自主模式：Stage C 审阅迭代结束后
 - 轻量模式：Stage L3 审阅结束后（仅在罕见触发时）
 
+### 前置检查（PT-00）
+
+进入原型设计阶段前，**先检测** `web-artifacts-builder` skill 是否已安装（尝试读取其 SKILL.md 或调用其初始化脚本）。
+
+- **可用** → 继续进入 Step 2.1
+- **不可用** → 使用 `AskUserQuestion` 告知用户：
+
+  > header: "原型依赖"
+  > 问题: "原型生成需要 web-artifacts-builder skill，但当前未检测到该 skill。"
+  > 选项：
+  > - **跳过原型**：本次不生成原型，仅保留 PRD
+  > - **仅输出设计方案**：生成 prototype-design.md 但不打包为 HTML（后续安装 skill 后可手动生成）
+
 ### 步骤
 
 #### 2.1 生成设计方案初稿
@@ -362,16 +377,17 @@ Step 2: 原型设计方案（PRD 确认后独立阶段）
 - 调用 web-artifacts-builder skill（外部技能），由该 skill 的 `init-artifact.sh` 初始化 React 项目
 - 基于 `prototype-design.md` 生成 React 组件代码
 - 由 web-artifacts-builder skill 的 `bundle-artifact.sh` 打包为单文件 HTML
+- **构建后修复**：运行 `node scripts/fix-bundle-fileproto.mjs prototype/bundle.html`，移除 `type="module"` 确保 Windows/macOS 双击直接打开（无需本地服务器）
 - 输出到 `requirements/REQ-{date}-{name}/prototype/bundle.html`
 
 #### 2.5 呈现原型
 
-告知用户原型文件位置，建议在浏览器中打开查看。
+告知用户原型文件位置，可直接双击在浏览器中打开。
 
 使用 `AskUserQuestion`（PT-03）：
 
 > header: "原型结果"
-> 问题: "原型已生成，请在浏览器中打开体验。"
+> 问题: "原型已生成（`prototype/bundle.html`），双击即可在浏览器中打开体验。"
 > 选项：
 > - **满意，完成交付**：原型达到预期效果
 > - **需要修改**：回到设计方案调整后重新生成
