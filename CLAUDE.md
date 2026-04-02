@@ -21,7 +21,9 @@ The skills share context within a single conversation but are intentionally sepa
 - `SKILL.md` in each skill directory is the **skill definition** — the system prompt Claude uses when the skill is triggered. Changes here directly affect skill behavior.
 - `references/` files are **operational guides** read by the skill at runtime (interview framework, phase instructions, diagram patterns, lite-mode instructions).
 - `templates/` files are **output templates** the skill fills in when generating artifacts (full 10-chapter PRD template and lite 7-chapter PRD template).
-- `scm-prd-workflow/scripts/init_workspace.sh` bootstraps workspace directories, detects Python environment, and writes config.
+- `scm-prd-workflow/scripts/init_workspace.sh` bootstraps workspace directories, detects Node.js + docx and Python environments, and writes config.
+- `scm-prd-workflow/scripts/md2docx.mjs` converts PRD Markdown to Word (.docx) using Node.js `docx` library — **推荐引擎**，排版精度最高，遵循 scm-prd-style 规范。
+- `scm-prd-workflow/scripts/md2docx.py` converts PRD Markdown to Word (.docx) using python-docx — **降级引擎**，Node.js 不可用时使用。
 - `scm-prd-workflow/scripts/check-prd-consistency.py` validates PRD cross-reference IDs, terminology consistency, and change coverage.
 - `scm-prd-workflow/scripts/yaml2drawio.py` converts YAML diagram DSL to draw.io XML with cycle detection, label overflow handling, and node count warnings.
 

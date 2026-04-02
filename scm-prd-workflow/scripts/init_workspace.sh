@@ -71,6 +71,19 @@ else
     #   .drawio        — draw.io XML 文件（由 yaml2drawio.py 从 .diagram.yaml 转换生成）
 fi
 
+# 检测 Node.js + docx 环境（Word 生成推荐方案）
+NODE_DOCX="false"
+DOCX_ENGINE="none"
+SKILL_SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+if node -e "process.chdir('${SKILL_SCRIPTS_DIR}'); require('docx'); console.log('ok')" >/dev/null 2>&1; then
+    NODE_DOCX="true"
+    DOCX_ENGINE="js"
+    echo "✓ 检测到 Node.js + docx 环境（Word 生成推荐方案）"
+else
+    echo "⚠ 未检测到 Node.js + docx，Word 生成将尝试 Python 降级"
+    echo "  推荐安装：cd ${SKILL_SCRIPTS_DIR} && npm install docx"
+fi
+
 # 检测 Python 环境
 PYTHON_CMD=""
 for cmd in python3 python py; do
@@ -84,6 +97,14 @@ if [ -z "$PYTHON_CMD" ]; then
     echo "⚠ 未检测到 Python 3 + PyYAML 环境，泳道图将仅输出 .diagram.yaml 源文件"
 fi
 
+# 确定 Word 生成降级引擎
+if [ "$NODE_DOCX" = "false" ] && [ -n "$PYTHON_CMD" ]; then
+    if $PYTHON_CMD -c "import docx; print('ok')" >/dev/null 2>&1; then
+        DOCX_ENGINE="python"
+        echo "✓ Word 生成将使用 Python 降级方案（推荐升级到 Node.js + docx）"
+    fi
+fi
+
 # 创建配置文件（如不存在）
 if [ ! -f ".scm-prd-config.yaml" ]; then
     cat > .scm-prd-config.yaml << EOF
@@ -92,11 +113,13 @@ project_name: ""
 default_author: ""
 prd_output_format:
   - markdown
-  - docx  # 取消注释此行启用Word输出
+  - docx
 knowledge_base_path: "./knowledge-base"
 requirements_path: "./requirements"
 python_cmd: "${PYTHON_CMD}"
 python_available: $([ -n "$PYTHON_CMD" ] && echo "true" || echo "false")
+node_docx_available: ${NODE_DOCX}
+docx_engine: "${DOCX_ENGINE}"  # js（推荐）| python（降级）| none
 EOF
     echo "✓ 创建配置文件: .scm-prd-config.yaml"
 fi

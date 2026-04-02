@@ -114,18 +114,24 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
    - 存在 PRD 但没有 `review-report.md`（交互/自主模式）→ 中断于自检阶段
 4. **扫描已有 PRD**：检查 `requirements/` 下已有的 PRD 文件，提取关键规则���接口定义，作为"已有约束"��入当前需求，避免跨需求���盾
    - **并行约束**：此扫描仅覆盖已写入文件的 PRD。如有其他对话窗口正在同时制作 PRD，它们之间互不可见。建议避免在多个会话中同时为同一系统域并行生产 PRD，以免产出矛盾的规则或接口定义
-5. **���测 Python 环境**（跨平台）：依次尝试以下命令，使用第一个成功的：
+5. **检测 Node.js + docx 环境**（Word 生成推荐方案）：
+   - 在技能安装目录的 `scripts/` 下执行 `node -e "require('docx'); console.log('ok')"`
+   - 成功 → `node_docx_available = true`，`docx_engine = "js"`
+   - 失败 → `node_docx_available = false`，继续检测 Python 降级方案
+6. **检测 Python 环境**（跨平台）：依次尝试以下命令，使用第一个成功的：
    - `python3 -c "import yaml; print('ok')"`（macOS / Linux 优先）
    - `python -c "import yaml; print('ok')"`（Windows 常见）
    - `py -3 -c "import yaml; print('ok')"`（Windows Python Launcher）
    - 记录成功的命令为 `python_cmd`（如 `python3`），后续所有 Python 调用统一使用该命令
    - 全部失败 → 记录 `python_available = false`，后续泳道图仅输出 `.diagram.yaml` 源文件（不转换为 `.drawio`），并在首次需要生成泳道图时提示用户
    - 轻量模式仅使用 Mermaid，不依赖 Python 环境
-6. **检测图表导出能力**（Python 可用时追加）：
+7. **检测图表导出能力 + Word 降级引擎**（Python 可用时追加）：
    - `{python_cmd} -c "import cairosvg; print('ok')"` → `cairosvg_available`（SVG→PNG 转换）
-   - `{python_cmd} -c "import docx; print('ok')"` → `docx_available`（Word 文档生成）
+   - `{python_cmd} -c "import docx; print('ok')"` → `python_docx_available`（Python Word 降级方案）
    - `{python_cmd} -c "import urllib.request; urllib.request.urlopen('https://mermaid.ink/img/Z3JhcGggVEQKICAgIEFbU3RhcnRd', timeout=5); print('ok')"` → `mermaid_ink_available`（Mermaid 图片导出）
-7. **模式确认门控**（MC-01）：根据用户输入推荐模式，使用 `AskUserQuestion` 让用户确认
+   - 如果 `node_docx_available = false` 且 `python_docx_available = true` → `docx_engine = "python"`
+   - 如果两者均不可用 → `docx_engine = null`
+8. **模式确认门控**（MC-01）：根据用户输入推荐模式，使用 `AskUserQuestion` 让用户确认
 
 ### 模式确认门控
 
@@ -246,6 +252,7 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 |----|------|---------|---------|
 | MC-01 | 模式确认 | SKILL.md | Skill启动后 |
 | MT-01 | 需求类型确认 | SKILL.md | 模式确认后 |
+| CD-01 | 章节详略选择 | phase3-write.md / autonomous-mode.md / lite-mode.md | 叙事规划输出后、撰写前（全模式） |
 | SL-01 | 轻量审阅反馈 | lite-mode.md | Stage L3 |
 | SL-02 | 复杂度升级建议 | lite-mode.md | Stage L2/L3 复杂度超标时 |
 | SC-01~06 | 自主模式审阅交互 | autonomous-mode.md | Stage C |
@@ -282,7 +289,7 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 
 **产出**：`PRD-{名称}.md` + `.docx` + `decision-log.md`（如有） + `diagrams/`
 
-读取 `references/phase3-write.md`、`references/diagram-patterns.md`、`references/diagram-yaml-schema.md`。**先完成叙事规划，确定 PRD 的表达策略（重点、详略、模块取舍），用户确认后再开始逐章撰写。**
+读取 `references/phase3-write.md`、`references/diagram-patterns.md`、`references/diagram-yaml-schema.md`。**先完成叙事规划，再通过章节详略选择（CD-01）让用户主动选择哪些章节重点展开，确定详略后再开始逐章撰写。**
 
 ### PRD结构（10章，按叙事规划裁剪）
 
@@ -294,6 +301,19 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 1. 文档信息 → 2. 需求概述(G-XX) → 3. 术语 → 4. 变更总览(C-XX) → 5. 业务流程(标注F-XXX) → 6. 功能与规则(F-XXX) → 7. 接口与数据(IF-XXX) → 8. NFR → 9. 验收标准(关联G/F) → 10. 待定与附录
 
 叙事规划中标为"省略"的维度不生成独立章节，由PRD尾部统一说明。
+
+### Feature Heading（标记型标题）
+
+PRD 中以 ID 标记开头的 `####` 级标题（如 `#### F-001 货主报关开关`）在 Word 输出中渲染为**彩色左边条 + 浅色背景**的特殊 H3 样式，帮助读者快速区分功能、接口、目标等不同类型的条目。
+
+| ID 前缀 | 类型 | 色系 | 深色（文字+边条） | 浅色（背景） |
+|---------|------|------|-----------------|------------|
+| F-XXX | 功能点 | 蓝色 | #1E3F6F | #E8EEF5 |
+| IF-XXX | 接口 | 绿色 | #155E3D | #E6F4ED |
+| G-XX | 目标 | 琥珀 | #8E5B08 | #FDF3E3 |
+| C-XX | 变更点 | 紫色 | #5B3A8C | #F0EBF8 |
+
+不以上述 ID 前缀开头的 `####` 标题仍渲染为普通 H3。此特性由 `scripts/md2docx.mjs` 自动识别，Markdown 侧无需额外标注。
 
 ### 图表格式选择
 
@@ -418,7 +438,17 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 - `.mermaid` → mermaid.ink API(.png)
 - **.drawio 始终默认生成**（Python 可用时），供用户在 draw.io 中手动编辑
 
-**Word 默认输出**：当 `docx_available = true` 时，交付阶段默认同时输出 Markdown + Word（`scripts/md2docx.py`），Word 中自动嵌入 `diagrams/*.png` 图片。用户可选择仅 Markdown。
+**Word 默认输出**：交付阶段默认同时输出 Markdown + Word，Word 中自动嵌入 `diagrams/*.png` 图片。用户可选择仅 Markdown。
+
+Word 生成引擎选择（JS 优先，Python 降级）：
+
+| 条件 | 行为 |
+|------|------|
+| `docx_engine = "js"` | 使用 `scripts/md2docx.mjs`（默认推荐，排版精度最高） |
+| `docx_engine = "python"` | 降级使用 `scripts/md2docx.py`，同时提示用户安装 JS 环境以获得更好排版：`cd scripts && npm install docx` |
+| `docx_engine = null` | 不生成 Word，提示安装：`cd scripts && npm install docx`（推荐）或 `pip install python-docx` |
+
+**原则**：只要当前未使用 JS 方案，每次生成 Word 时都提示用户安装 JS 依赖。
 
 **其他降级策略**：
 
@@ -426,7 +456,19 @@ Skill被触发后、正式进入任何PRD阶段之前，统一插入一次模式
 |------|------|
 | cairosvg 不可用 | 仅输出 .svg，Word 中图表位置用占位文字 |
 | mermaid.ink 不可达 | Mermaid 图保留 .mermaid 源文件 |
-| python-docx 不可用 | 不生成 Word，提示 `pip install python-docx` |
+| JS + Python 均不可用 | 不生成 Word，提示 `cd scripts && npm install docx`（推荐）或 `pip install python-docx` |
+
+### 表注语法
+
+对表格字段的补充说明使用 `^` 前缀标记为表注，紧跟表格、不留间隔。Word 输出时渲染为 9pt 灰色小字。详见 `references/phase3-write.md` 的"表注"章节。
+
+```markdown
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| order_no | String | 订单号 |
+
+^ **数据来源**：取OMS出库单已有字段。
+```
 
 ### 撰写原则
 

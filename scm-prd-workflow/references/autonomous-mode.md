@@ -203,6 +203,7 @@
 4.5. **记录决策** → 撰写过程中遇到多方案选择时，同步写入 `decision-log.md`（使用 `templates/decision-log-template.md`）。当 `[推断]` 涉及多方案选择时，应同时创建决策记录
 5. **绘制流程图** → 保存到 `diagrams/` 目录。`python_available = true` 时**默认生成** `.diagram.yaml` + `.drawio` + `.mermaid`；`python_available = false` 时按 SKILL.md "draw.io 生成降级策略 DG-01" 处理（引导安装依赖或降级，不阻断流程）
 5.5. **导出图表** → 调用 `scripts/export-diagrams.py` 统一处理 .drawio 生成 + .svg/.png 导出（.drawio 生成失败不阻断 PNG 导出）
+   5.6. **生成 Word** → 按 `docx_engine` 选择引擎：`"js"` 时调用 `node scripts/md2docx.mjs`（推荐），`"python"` 时调用 `{python_cmd} scripts/md2docx.py`（降级），`null` 时跳过并提示安装
 6. **一致性扫描** → 如 Python 可用，执行 `{python_cmd} scripts/check-prd-consistency.py` 验证 ID 交叉引用和模糊用语；发现关键问题先自动修复
 7. **执行自检** → 读取 `references/phase4-review.md`，执行 CK-0 到 CK-9 全部检查
 8. **生成报告** → 输出 `review-report.md`
@@ -250,13 +251,18 @@
 - 第二层：C-XX {是/否}、IF-XXX {是/否}
 ```
 
-使用 `AskUserQuestion` 确认大纲：
+使用 `AskUserQuestion`（multiSelect）强制章节详略选择（CD-01）：
 
-> header: "叙事规划"
-> 问题: "以上是 PRD 的表达策略和结构大纲，确认后我将开始撰写。"
-> 选项：
-> - **确认，开始撰写**：策略和大纲无需调整
-> - **需要调整**：进入自由文本，说明调整意见（增删维度、调整详略等）
+> header: "章节详略选择"
+> markdown: （展示上方叙事规划 + 大纲内容）
+> 问题: "请选择需要**重点展开**的章节（可多选）。未选中的章节将按标准/精简描述或省略。"
+> multiSelect:
+> - **业务流程（Ch.5）**：完整流程图 + 步骤详解
+> - **功能与规则（Ch.6）**：步骤-规则表逐项展开，含完整异常处理
+> - **接口与数据（Ch.7）**：接口规格 + 字段级定义
+> - **非功能性需求（Ch.8）**：性能/安全/可用性量化描述
+
+选择结果处理：选中→"重点"展开，未选中+相关→"标准/精简"，未选中+无关→省略（详见 `phase3-write.md` CD-01 说明）。AI 据此更新叙事规划的详略表格后开始撰写。
 
 ### 三级标记体系
 

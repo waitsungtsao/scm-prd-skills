@@ -50,7 +50,7 @@ CALLOUT_TYPES = {
     "[推断]":     ("2B5797", "E8F0FE", "推断"),
     "[建议]":     ("27AE60", "E8F5E9", "建议"),
 }
-CALLOUT_STRIPE_WIDTH = 120  # DXA
+CALLOUT_STRIPE_WIDTH = 120  # DXA（色条宽度，与 JS 规范一致）
 IMAGE_WIDTH = Inches(6.0)
 
 # 表格样式常量（来自中文 PRD 样式规范）
@@ -59,6 +59,21 @@ TABLE_HEADER_FG = "FFFFFF"   # 白字
 TABLE_ZEBRA_BG = "F7F7F7"   # 偶数行底色
 TABLE_BORDER_COLOR = "D0D0D0"  # 边框色
 TABLE_FONT_SIZE = Pt(10)
+
+# 排版常量（与 prd-docx-styles.docx 模板保持一致）
+# 注意：标题/段落/列表间距由模板样式定义，不在代码中覆盖
+CJK_FONT = "Microsoft YaHei"
+CODE_SPACE = Pt(8)            # 代码块前后间距
+ELEMENT_GAP = Pt(10)          # 元素间通用间隔（表格/提示块/图片前后，≈200 DXA）
+
+# 表格排版（参考模板 §9.2 垂直间距节奏）
+TABLE_CELL_H_MARGIN = 120     # 单元格水平内边距 (DXA)
+TABLE_CELL_V_MARGIN = 80      # 单元格垂直内边距 (DXA)
+TABLE_LINE_SPACING = 288      # 单元格行距 = 1.2 倍（240=单倍，288=1.2倍）
+TABLE_SEQ_COL_WIDTH = 600     # 序号列宽度 (DXA, 约 1cm)
+
+# H1 底部分割线
+H1_BORDER_COLOR = "2B5797"    # 与 Heading 2 主题色一致
 
 # 模板路径
 _TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', 'templates', 'prd-docx-styles.docx')
@@ -71,8 +86,24 @@ _TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', 'templates', 'prd
 _INLINE_RE = re.compile(r"(\*\*.*?\*\*|`.*?`)")
 
 
+def _set_run_shading(run, color_hex):
+    """为 run 设置字符级背景色。"""
+    shd = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{color_hex}" w:val="clear"/>')
+    run._element.get_or_add_rPr().append(shd)
+
+
+def _set_cjk_font(run, font_name=None):
+    """为 run 设置 CJK 字体。"""
+    rPr = run._element.get_or_add_rPr()
+    rFonts = rPr.find(qn("w:rFonts"))
+    if rFonts is None:
+        rFonts = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
+        rPr.insert(0, rFonts)
+    rFonts.set(qn("w:eastAsia"), font_name or CJK_FONT)
+
+
 def _add_formatted_runs(paragraph, text):
-    """将文本按 bold / code / normal 分段添加到段落中。"""
+    """将文本按 bold / code / normal 分段添加到段落中，统一设置 CJK 字体。"""
     segments = _INLINE_RE.split(text)
     for seg in segments:
         if not seg:
@@ -80,13 +111,16 @@ def _add_formatted_runs(paragraph, text):
         if seg.startswith("**") and seg.endswith("**"):
             run = paragraph.add_run(seg[2:-2])
             run.bold = True
+            _set_cjk_font(run)
         elif seg.startswith("`") and seg.endswith("`"):
             run = paragraph.add_run(seg[1:-1])
             run.font.name = MONOSPACE_FONT
             run.font.size = MONOSPACE_SIZE
-            run._element.rPr.rFonts.set(qn("w:eastAsia"), MONOSPACE_FONT)
+            _set_cjk_font(run, MONOSPACE_FONT)
+            _set_run_shading(run, CODE_BG_COLOR)
         else:
-            paragraph.add_run(seg)
+            run = paragraph.add_run(seg)
+            _set_cjk_font(run)
 
 
 def _add_formatted_runs_to_cell(cell, text):
@@ -268,13 +302,110 @@ def _set_cell_shading(cell, color_hex):
     cell._element.get_or_add_tcPr().append(shading_elm)
 
 
-def _style_table(tbl):
-    """应用表格样式：蓝底白字表头 + 斑马纹 + 统一边框。"""
-    # 设置表格边框
+def _is_seq_column(col_values):
+    """判断某列是否为序号列（内容为纯数字或 #、序号 等）。"""
+    seq_patterns = re.compile(r'^(\d{1,3}|#|序号|No\.?)$')
+    return all(seq_patterns.match(v.strip()) for v in col_values if v.strip())
+
+
+def _compute_col_widths(table_rows, total_width_pct=5000):
+    """根据内容计算列宽分配（百分比单位，5000 = 100%）。
+
+    策略：
+    - 序号列固定窄宽
+    - 标题行文字权重最高（避免标题换行）
+    - 其余列按最大内容长度加权分配
+    """
+    if not table_rows:
+        return []
+    num_cols = len(table_rows[0])
+    if num_cols == 0:
+        return []
+
+    def char_width(text):
+        """计算显示宽度：中文/全角算 2，ASCII 算 1。"""
+        return sum(2 if ord(ch) > 0x7F else 1 for ch in text)
+
+    # 判断序号列（第一列，数据行均为短数字/符号）
+    is_seq = [False] * num_cols
+    if num_cols > 1 and len(table_rows) > 1:
+        data_vals = [row[0] for row in table_rows[1:]]
+        if data_vals and _is_seq_column(data_vals):
+            is_seq[0] = True
+
+    # 计算每列所需宽度
+    # 标题行权重 ×2（优先保证标题不换行）
+    # 数据行取 P90 宽度（忽略极端长行），避免个别长文本拉宽整列
+    col_needs = []
+    for c_idx in range(num_cols):
+        if is_seq[c_idx]:
+            col_needs.append(0)
+            continue
+        header_w = char_width(table_rows[0][c_idx]) * 2.0 if table_rows[0] else 0
+        data_widths = sorted(
+            (char_width(row[c_idx]) for row in table_rows[1:] if c_idx < len(row)),
+            reverse=True
+        )
+        # P90: 取第 10% 位置的值（忽略最宽的几行）
+        if data_widths:
+            p90_idx = max(0, len(data_widths) // 10)
+            data_w = data_widths[min(p90_idx, len(data_widths) - 1)]
+        else:
+            data_w = 0
+        col_needs.append(max(header_w, data_w, 3))
+
+    # 序号列固定 ~6%
+    seq_pct = 300
+    seq_total = sum(seq_pct for s in is_seq if s)
+    remaining = total_width_pct - seq_total
+
+    total_need = sum(col_needs) or 1
+    result = []
+    for c_idx in range(num_cols):
+        if is_seq[c_idx]:
+            result.append(seq_pct)
+        else:
+            pct = int(remaining * col_needs[c_idx] / total_need)
+            pct = max(350, min(3000, pct))  # 最小 7%, 最大 60%
+            result.append(pct)
+
+    # 归一化
+    total = sum(result)
+    if total != total_width_pct:
+        factor = total_width_pct / total
+        result = [int(w * factor) for w in result]
+        diff = total_width_pct - sum(result)
+        for c_idx in range(num_cols - 1, -1, -1):
+            if not is_seq[c_idx]:
+                result[c_idx] += diff
+                break
+
+    return result
+
+
+def _style_table(tbl, table_rows=None):
+    """应用表格样式：全宽 + 蓝底白字表头 + 斑马纹 + 边框 + 内边距 + 行距 + 列宽。"""
     tbl_pr = tbl._element.tblPr
     if tbl_pr is None:
         tbl_pr = parse_xml(f'<w:tblPr {nsdecls("w")}/>')
         tbl._element.insert(0, tbl_pr)
+
+    # 表格 100% 页宽
+    tbl_pr.append(parse_xml(
+        f'<w:tblW {nsdecls("w")} w:w="5000" w:type="pct"/>'
+    ))
+
+    # 单元格默认内边距：上下 80 DXA、左右 120 DXA
+    tbl_pr.append(parse_xml(
+        f'<w:tblCellMar {nsdecls("w")}>'
+        f'  <w:top w:w="{TABLE_CELL_V_MARGIN}" w:type="dxa"/>'
+        f'  <w:left w:w="{TABLE_CELL_H_MARGIN}" w:type="dxa"/>'
+        f'  <w:bottom w:w="{TABLE_CELL_V_MARGIN}" w:type="dxa"/>'
+        f'  <w:right w:w="{TABLE_CELL_H_MARGIN}" w:type="dxa"/>'
+        f'</w:tblCellMar>'
+    ))
+
+    # 边框
     borders_xml = (
         f'<w:tblBorders {nsdecls("w")}>'
         f'  <w:top w:val="single" w:sz="4" w:space="0" w:color="{TABLE_BORDER_COLOR}"/>'
@@ -287,8 +418,40 @@ def _style_table(tbl):
     )
     tbl_pr.append(parse_xml(borders_xml))
 
+    # 列宽分配
+    col_widths = _compute_col_widths(table_rows) if table_rows else []
+
     for r_idx, row in enumerate(tbl.rows):
-        for cell in row.cells:
+        # 表头行：换页时重复
+        if r_idx == 0:
+            tr_pr = row._element.get_or_add_trPr()
+            tr_pr.append(parse_xml(f'<w:tblHeader {nsdecls("w")}/>'))
+
+        for c_idx, cell in enumerate(row.cells):
+            tc_pr = cell._element.get_or_add_tcPr()
+
+            # 垂直居中
+            tc_pr.append(parse_xml(
+                f'<w:vAlign {nsdecls("w")} w:val="center"/>'
+            ))
+
+            # 列宽
+            if col_widths and c_idx < len(col_widths):
+                tc_pr.append(parse_xml(
+                    f'<w:tcW {nsdecls("w")} w:w="{col_widths[c_idx]}" w:type="pct"/>'
+                ))
+
+            # 单元格内段落：1.2 倍行距 + 紧凑间距 + 字体
+            for paragraph in cell.paragraphs:
+                pPr = paragraph._element.get_or_add_pPr()
+                pPr.append(parse_xml(
+                    f'<w:spacing {nsdecls("w")} w:line="{TABLE_LINE_SPACING}"'
+                    f' w:lineRule="auto" w:before="0" w:after="0"/>'
+                ))
+                for run in paragraph.runs:
+                    run.font.size = TABLE_FONT_SIZE
+                    _set_cjk_font(run)
+
             if r_idx == 0:
                 # 表头行：蓝底白字加粗
                 _set_cell_shading(cell, TABLE_HEADER_BG)
@@ -296,14 +459,10 @@ def _style_table(tbl):
                     for run in paragraph.runs:
                         run.bold = True
                         run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-                        run.font.size = TABLE_FONT_SIZE
             else:
                 # 数据行：斑马纹
                 if r_idx % 2 == 0:
                     _set_cell_shading(cell, TABLE_ZEBRA_BG)
-                for paragraph in cell.paragraphs:
-                    for run in paragraph.runs:
-                        run.font.size = TABLE_FONT_SIZE
 
 
 def _detect_callout(text):
@@ -319,11 +478,22 @@ def _add_callout_block(doc, marker, content):
     """渲染提示块：左侧窄色条 + 右侧浅色背景内容区（双列无边框表格）。"""
     stripe_color, bg_color, label = CALLOUT_TYPES[marker]
 
+    # 提示块前间距：插入间隔段落（前一个元素可能是表格，无法用 space_after）
+    spacer = doc.add_paragraph()
+    spacer_run = spacer.add_run()
+    spacer_run.font.size = Pt(1)
+    spacer.paragraph_format.space_before = Pt(0)
+    spacer.paragraph_format.space_after = ELEMENT_GAP
+
     tbl = doc.add_table(rows=1, cols=2)
     tbl.autofit = False
 
-    # 隐藏所有边框
     tbl_pr = tbl._element.tblPr
+    # 全宽
+    tbl_pr.append(parse_xml(
+        f'<w:tblW {nsdecls("w")} w:w="5000" w:type="pct"/>'
+    ))
+    # 隐藏所有边框
     no_borders = (
         f'<w:tblBorders {nsdecls("w")}>'
         '  <w:top w:val="none" w:sz="0" w:space="0"/>'
@@ -336,9 +506,8 @@ def _add_callout_block(doc, marker, content):
     )
     tbl_pr.append(parse_xml(no_borders))
 
-    # 左列：窄色条
+    # 左列：窄色条（仅用 tcW 控制宽度，零内边距）
     stripe_cell = tbl.cell(0, 0)
-    stripe_cell.width = Emu(CALLOUT_STRIPE_WIDTH * 914)  # DXA to EMU approx
     tc_pr = stripe_cell._element.get_or_add_tcPr()
     tc_pr.append(parse_xml(
         f'<w:shd {nsdecls("w")} w:fill="{stripe_color}" w:val="clear"/>'
@@ -346,16 +515,29 @@ def _add_callout_block(doc, marker, content):
     tc_pr.append(parse_xml(
         f'<w:tcW {nsdecls("w")} w:w="{CALLOUT_STRIPE_WIDTH}" w:type="dxa"/>'
     ))
-    # 清空默认段落文本
+    tc_pr.append(parse_xml(
+        f'<w:tcMar {nsdecls("w")}>'
+        f'  <w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/>'
+        f'  <w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/>'
+        f'</w:tcMar>'
+    ))
     stripe_cell.paragraphs[0].text = ""
 
-    # 右列：浅色背景 + 内容
+    # 右列：浅色背景 + 内容 + 内边距
     content_cell = tbl.cell(0, 1)
     tc_pr2 = content_cell._element.get_or_add_tcPr()
     tc_pr2.append(parse_xml(
         f'<w:shd {nsdecls("w")} w:fill="{bg_color}" w:val="clear"/>'
     ))
-    # 内容：标签加粗 + 正文（支持多段落）
+    tc_pr2.append(parse_xml(
+        f'<w:tcMar {nsdecls("w")}>'
+        f'  <w:top w:w="100" w:type="dxa"/>'
+        f'  <w:left w:w="180" w:type="dxa"/>'
+        f'  <w:bottom w:w="100" w:type="dxa"/>'
+        f'  <w:right w:w="160" w:type="dxa"/>'
+        f'</w:tcMar>'
+    ))
+    # 内容：标签加粗 + 正文
     paragraphs = content.split("\n")
     first_para = True
     for para_text in paragraphs:
@@ -363,8 +545,9 @@ def _add_callout_block(doc, marker, content):
             p = content_cell.paragraphs[0]
             label_run = p.add_run(f"{label}  ")
             label_run.bold = True
-            label_run.font.size = Pt(10)
+            label_run.font.size = TABLE_FONT_SIZE
             label_run.font.color.rgb = RGBColor.from_string(stripe_color)
+            _set_cjk_font(label_run)
             first_para = False
         else:
             if not para_text.strip():
@@ -405,6 +588,8 @@ def convert(md_path):
     # -----------------------------------------------------------------
     i = 0
     total = len(lines)
+    h1_count = 0      # 跟踪 Word H1 数量，用于分页控制
+    doc_title = ""    # 文档标题，用于页眉
 
     # 跳过 YAML front matter
     if total > 0 and _RE_FRONT_MATTER_DELIM.match(lines[0]):
@@ -422,18 +607,68 @@ def convert(md_path):
             continue
 
         # ---- 水平分割线 ----
+        # PRD 中 --- 仅作为 Markdown 章节分隔，Word 中由 H1 分页替代，跳过
         if _RE_HR.match(line):
-            _add_horizontal_rule(doc)
             i += 1
             continue
 
         # ---- 标题 ----
+        # Markdown → Word 标题层级映射：
+        #   # (md H1)  → Title 样式（文档总标题，26pt）
+        #   ## (md H2) → Heading 1（章标题，18pt，分页+底线）
+        #   ### (md H3) → Heading 2（节标题，14pt）
+        #   #### (md H4) → Heading 3（小节标题，12pt）
         m_heading = _RE_HEADING.match(line)
         if m_heading:
-            level = len(m_heading.group(1))
+            md_level = len(m_heading.group(1))
             text = m_heading.group(2).strip()
-            heading = doc.add_heading(level=level)
-            _add_formatted_runs(heading, text)
+
+            if md_level == 1:
+                # Markdown # → 封面页标题
+                doc_title = text
+                # 封面居中留白
+                for _ in range(6):
+                    sp = doc.add_paragraph()
+                    sp.paragraph_format.space_after = Pt(0)
+                # 标题：30pt 加粗，左侧蓝色竖线
+                heading = doc.add_paragraph()
+                heading.paragraph_format.space_after = Pt(4)
+                pPr = heading._element.get_or_add_pPr()
+                pPr.append(parse_xml(
+                    f'<w:pBdr {nsdecls("w")}>'
+                    f'  <w:left w:val="single" w:sz="20" w:space="8"'
+                    f'   w:color="{H1_BORDER_COLOR}"/>'
+                    f'</w:pBdr>'
+                ))
+                pPr.append(parse_xml(
+                    f'<w:ind {nsdecls("w")} w:left="400"/>'
+                ))
+                title_run = heading.add_run(text)
+                title_run.bold = True
+                title_run.font.size = Pt(30)
+                title_run.font.color.rgb = RGBColor(0x1A, 0x1A, 0x1A)
+                _set_cjk_font(title_run)
+                # 封面后分页
+                pb = doc.add_paragraph()
+                pb_run = pb.add_run()
+                pb_run.add_break()  # page break
+            else:
+                # md ## → Word H1, md ### → Word H2, md #### → Word H3
+                word_level = md_level - 1
+                heading = doc.add_heading(level=word_level)
+                _add_formatted_runs(heading, text)
+                # 标题间距由模板样式定义，不在此覆盖
+                if word_level == 1:
+                    # 章标题（Word H1）：始终分页 + 底部分割线
+                    heading.paragraph_format.page_break_before = True
+                    h1_count += 1
+                    pPr = heading._element.get_or_add_pPr()
+                    pPr.append(parse_xml(
+                        f'<w:pBdr {nsdecls("w")}>'
+                        f'  <w:bottom w:val="single" w:sz="8" w:space="4"'
+                        f'   w:color="{H1_BORDER_COLOR}"/>'
+                        f'</w:pBdr>'
+                    ))
             i += 1
             continue
 
@@ -446,9 +681,9 @@ def convert(md_path):
             if resolved:
                 try:
                     doc.add_picture(resolved, width=IMAGE_WIDTH)
-                    # 居中
                     last_p = doc.paragraphs[-1]
                     last_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    last_p.paragraph_format.space_before = ELEMENT_GAP
                 except Exception as exc:
                     p = doc.add_paragraph()
                     run = p.add_run(f"[图表加载失败: {filename} — {exc}]")
@@ -465,10 +700,11 @@ def convert(md_path):
                 cap_run = cap.add_run(alt_text)
                 cap_run.font.size = Pt(9)
                 cap_run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+                cap.paragraph_format.space_after = ELEMENT_GAP
             i += 1
             continue
 
-        # ---- 代码块（包含 mermaid） ----
+        # ---- 代码块 ----
         m_code = _RE_CODE_FENCE.match(line)
         if m_code:
             lang = m_code.group(1).lower()
@@ -480,23 +716,24 @@ def convert(md_path):
             if i < total:
                 i += 1  # 跳过结束 ```
 
-            # 如果是 mermaid，添加提示标签
-            if lang == "mermaid":
-                label_p = doc.add_paragraph()
-                label_run = label_p.add_run("[Mermaid 图表源码]")
-                label_run.italic = True
-                label_run.font.size = Pt(8)
-                label_run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
-
-            code_text = "\n".join(code_lines)
-            p = doc.add_paragraph()
-            _set_paragraph_shading(p, CODE_BG_COLOR)
-            p.space_before = Pt(4)
-            p.space_after = Pt(4)
-            run = p.add_run(code_text)
-            run.font.name = MONOSPACE_FONT
-            run.font.size = MONOSPACE_SIZE
-            run._element.rPr.rFonts.set(qn("w:eastAsia"), MONOSPACE_FONT)
+            # 图表 DSL（mermaid/plantuml/dot）：不逐行渲染源码，输出一行占位说明
+            if lang in ("mermaid", "plantuml", "dot", "graphviz"):
+                p = doc.add_paragraph()
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = p.add_run(f"[{lang} 图表源码，见 diagrams/ 目录]")
+                run.italic = True
+                run.font.size = Pt(9)
+                run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+            else:
+                code_text = "\n".join(code_lines)
+                p = doc.add_paragraph()
+                _set_paragraph_shading(p, CODE_BG_COLOR)
+                p.space_before = CODE_SPACE
+                p.space_after = CODE_SPACE
+                run = p.add_run(code_text)
+                run.font.name = MONOSPACE_FONT
+                run.font.size = MONOSPACE_SIZE
+                _set_cjk_font(run, MONOSPACE_FONT)
             continue
 
         # ---- 表格 ----
@@ -527,7 +764,14 @@ def convert(md_path):
                     cell = tbl.cell(r_idx, c_idx)
                     _add_formatted_runs_to_cell(cell, cell_text)
 
-            _style_table(tbl)
+            _style_table(tbl, table_rows)
+
+            # 表格后间距：插入间隔段落
+            spacer = doc.add_paragraph()
+            spacer_run = spacer.add_run()
+            spacer_run.font.size = Pt(1)
+            spacer.paragraph_format.space_before = ELEMENT_GAP
+            spacer.paragraph_format.space_after = Pt(0)
 
             continue
 
@@ -567,6 +811,7 @@ def convert(md_path):
                     p = doc.add_paragraph()
                     p.paragraph_format.left_indent = Inches(0.5)
                     _add_formatted_runs(p, bq_text)
+                    # 间距由 Normal 样式定义
 
             continue
 
@@ -579,9 +824,9 @@ def convert(md_path):
                     text = m.group(2)
                     p = doc.add_paragraph(style="List Bullet")
                     _add_formatted_runs(p, text)
+                    # 间距由模板 contextualSpacing 控制
                     i += 1
                 elif lines[i].strip() == "":
-                    # 允许列表项之间有空行
                     if i + 1 < total and _RE_UL.match(lines[i + 1]):
                         i += 1
                     else:
@@ -603,6 +848,7 @@ def convert(md_path):
                     if is_first_item:
                         _restart_list_numbering(p)
                         is_first_item = False
+                    # 间距由模板 contextualSpacing 控制
                     i += 1
                 elif lines[i].strip() == "":
                     if i + 1 < total and _RE_OL.match(lines[i + 1]):
@@ -646,6 +892,7 @@ def convert(md_path):
                     doc.add_picture(resolved, width=IMAGE_WIDTH)
                     last_p = doc.paragraphs[-1]
                     last_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    last_p.paragraph_format.space_before = ELEMENT_GAP
                 except Exception:
                     p = doc.add_paragraph()
                     run = p.add_run(f"[图表: {filename}，见 diagrams/ 目录]")
@@ -659,6 +906,53 @@ def convert(md_path):
         else:
             p = doc.add_paragraph()
             _add_formatted_runs(p, para_text)
+            # 间距由 Normal 样式定义（space_after=6pt, line=1.5x）
+
+    # -----------------------------------------------------------------
+    # 页眉页脚
+    # -----------------------------------------------------------------
+    section = doc.sections[0]
+
+    # 页眉：文档标题（右对齐，9pt 灰色）
+    header = section.header
+    header.is_linked_to_previous = False
+    h_para = header.paragraphs[0]
+    h_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    h_run = h_para.add_run(doc_title or os.path.splitext(os.path.basename(md_path))[0])
+    h_run.font.size = Pt(9)
+    h_run.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    _set_cjk_font(h_run)
+
+    # 页脚：页码居中（"第 X 页 / 共 Y 页"）
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    f_para = footer.paragraphs[0]
+    f_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    f_run1 = f_para.add_run("第 ")
+    f_run1.font.size = Pt(9)
+    f_run1.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    # 当前页码域
+    fld_page = parse_xml(
+        f'<w:fldSimple {nsdecls("w")} w:instr=" PAGE "/>'
+    )
+    r_page = parse_xml(f'<w:r {nsdecls("w")}><w:rPr><w:sz w:val="18"/>'
+                       f'<w:color w:val="999999"/></w:rPr><w:t>1</w:t></w:r>')
+    fld_page.append(r_page)
+    f_para._element.append(fld_page)
+    f_run2 = f_para.add_run(" 页 / 共 ")
+    f_run2.font.size = Pt(9)
+    f_run2.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    # 总页数域
+    fld_numpages = parse_xml(
+        f'<w:fldSimple {nsdecls("w")} w:instr=" NUMPAGES "/>'
+    )
+    r_nump = parse_xml(f'<w:r {nsdecls("w")}><w:rPr><w:sz w:val="18"/>'
+                       f'<w:color w:val="999999"/></w:rPr><w:t>1</w:t></w:r>')
+    fld_numpages.append(r_nump)
+    f_para._element.append(fld_numpages)
+    f_run3 = f_para.add_run(" 页")
+    f_run3.font.size = Pt(9)
+    f_run3.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
 
     # -----------------------------------------------------------------
     # 保存
