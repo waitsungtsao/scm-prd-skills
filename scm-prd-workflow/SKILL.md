@@ -74,7 +74,7 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 | Phase 1 | 需求录入 | `intake.md` | 多轮提问，挖掘需求全貌 |
 | Phase 2 | 需求澄清 | `clarification.md` | 逐项确认，消除歧义 |
 | Phase 3 | 方案输出 | `PRD-{名称}.md` + `.docx` | 叙事规划→确认→撰写PRD + 流程图 |
-| Phase 4 | 自检审查 | `review-report.md` | 自动质量检查（CK-0~CK-9）+ 用户审阅 |
+| Phase 4 | 自检审查 | `review-report.md`、`delivery-brief.md`（可选） | 自动质量检查（CK-0~CK-9）+ 用户审阅 |
 
 **自主模式**使用 Stage A-C（详见"自主生成模式"章节）：
 
@@ -82,7 +82,7 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 |------|------|---------|---------|
 | Stage A | 压缩录入 | `intake.md` | 1-2轮对话，快速收集关键信息 |
 | Stage B | 自主生成 | `clarification.md` + `PRD-{名称}.md` + `review-report.md` | 叙事规划→大纲确认→一次性撰写全部文件 |
-| Stage C | 审阅迭代 | 更新上述文件 | 用户审阅假设，批量反馈，AI迭代修改 |
+| Stage C | 审阅迭代 | 更新上述文件、`delivery-brief.md`（可选） | 用户审阅假设，批量反馈，AI迭代修改 |
 
 **轻量模式**使用 Stage L1-L3（详见 `references/lite-mode.md`）：
 
@@ -597,7 +597,10 @@ PRD 中以 ID 标记开头的 `####` 级标题（如 `#### F-001 货主报关开
 - `.mermaid` → mermaid.ink API(.png)
 - **.drawio 始终默认生成**（Python 可用时），供用户在 draw.io 中手动编辑
 
-**Word 默认输出**：交付阶段默认同时输出 Markdown + Word，Word 中自动嵌入 `diagrams/*.png` 图片。用户可选择仅 Markdown。
+**交付输出选项**（交互/自主模式）：交付阶段通过 multiSelect 让用户勾选附加输出：
+- **Word 文档** — 同时生成 `.docx`（自动嵌入 `diagrams/*.png` 图片）
+- **交付精要** — 生成 `delivery-brief.md`，从 PRD 中提取关键假设、跨系统依赖、实施风险、AI 补充内容的一页摘要；如同时选中 Word 则也生成 `delivery-brief.docx`
+- Markdown 始终生成，无需勾选
 
 Word 生成引擎选择（JS 优先，Python 降级）：
 

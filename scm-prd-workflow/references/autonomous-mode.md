@@ -536,15 +536,20 @@ Stage B 完成后，按以下顺序向用户呈现：
 
 所有假设确认、自检通过后，使用 `AskUserQuestion` 并发确认最终交付选项（2个问题同时提出）：
 
-> 问题1（header: "交付格式"）: "PRD最终输出格式？" → **Markdown + Word** / **仅Markdown**
+> 问题1（header: "交付选项", multiSelect）: "PRD 最终输出选项？（Markdown 始终包含）"
+> 选项：
+> - **Word 文档** — 同时生成 .docx 格式
+> - **交付精要** — 生成一页摘要：关键假设、跨系统依赖、风险提示
 > 问题2（header: "知识库"）: "是否有需要补充到知识库的新业务信息？" → **有，需要补充** / **没有**
 
 确认后执行：
 1. 更新PRD版本号（移除所有标记后的版本）
 2. 按选择的格式生成文件
-3. 将所有产出文件列表呈现给用户
-4. 如用户选择补充知识库，引导使用 scm-knowledge-curator 技能
-5. 如果叙事规划的 CD-01 中用户选中了"原型演示"，进入 Stage D
+3. 如选中"交付精要"→ 生成 `delivery-brief.md`（提取规则见 phase4-review.md "交付精要提取规则"章节）；如同时选中 Word → 也生成 `delivery-brief.docx`
+4. 将所有产出文件列表呈现给用户
+5. 如 `diagrams/` 目录包含 `.drawio` 文件，提示用户："流程图也已输出为 draw.io 格式（`diagrams/*.drawio`），如需调整布局或细节可用 draw.io 编辑器打开编辑"
+6. 如用户选择补充知识库，引导使用 scm-knowledge-curator 技能
+7. 如果叙事规划的 CD-01 中用户选中了"原型演示"，进入 Stage D
 
 ---
 

@@ -29,7 +29,7 @@ function loadDocx() {
 }
 
 const {
-  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell,
   Header, Footer, AlignmentType, LevelFormat, HeadingLevel,
   BorderStyle, WidthType, ShadingType, PageBreak, PageNumber,
   TabStopType, TabStopPosition,
@@ -82,6 +82,36 @@ function detectFeatType(text) {
   if (/^F-\d/i.test(text)) return "feature";
   if (/^G-\d/i.test(text)) return "goal";
   if (/^C-\d/i.test(text)) return "change";
+  return null;
+}
+
+// ── IMAGE HELPERS ──
+const EMU_PER_INCH = 914400;
+const IMAGE_MAX_WIDTH = 6 * EMU_PER_INCH; // 6 inches, matching Python version
+
+/** 解析图片路径：原路径 → .drawio/.svg/.mermaid 同名 .png → diagrams/ 子目录 */
+function resolveImagePath(rawSrc, mdDir) {
+  const raw = rawSrc.trim();
+  const candidate = path.isAbsolute(raw) ? raw : path.resolve(mdDir, raw);
+  if (fs.existsSync(candidate)) return candidate;
+  // .drawio / .svg / .mermaid → try same-name .png
+  const ext = path.extname(candidate).toLowerCase();
+  if ([".drawio", ".svg", ".mermaid"].includes(ext)) {
+    const png = candidate.replace(/\.[^.]+$/, ".png");
+    if (fs.existsSync(png)) return png;
+  }
+  // Try diagrams/ subdirectory
+  const pngName = path.basename(raw, path.extname(raw)) + ".png";
+  const diagCandidate = path.join(mdDir, "diagrams", pngName);
+  if (fs.existsSync(diagCandidate)) return diagCandidate;
+  return null;
+}
+
+/** 从 PNG 文件头读取宽高（px），非 PNG 返回 null */
+function readPngSize(buf) {
+  if (buf.length >= 24 && buf[0] === 0x89 && buf[1] === 0x50) {
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+  }
   return null;
 }
 
@@ -443,6 +473,7 @@ function buildDoc(mdPath) {
 
   const content = [];
   let prevType = null; // 跟踪上一个元素类型
+  let olInstance = 0;  // 有序列表实例计数，每个 ol 独立编号
 
   // 表格/表注后间距：遇到后续元素时插入标准间隔（200 DXA）
   function flushTableGap() {
@@ -525,8 +556,9 @@ function buildDoc(mdPath) {
 
       case "ol":
         flushTableGap();
+        olInstance++;
         for (const item of el.items)
-          content.push(para(parseInline(item), { numbering: { reference: "numbers", level: 0 }, spacing: { after: 80, line: 360 } }));
+          content.push(para(parseInline(item), { numbering: { reference: "numbers", level: 0, instance: olInstance }, spacing: { after: 80, line: 360 } }));
         prevType = "ol";
         break;
 
@@ -560,13 +592,33 @@ function buildDoc(mdPath) {
         prevType = "quote";
         break;
 
-      case "image":
+      case "image": {
         flushTableGap();
-        content.push(para(txt(`[图表: ${el.alt || el.src}，见 diagrams/ 目录]`, { size: 20, color: C.captionGray, italics: true }), {
-          alignment: AlignmentType.CENTER, spacing: { before: 120, after: 120 },
-        }));
+        const resolved = resolveImagePath(el.src, path.dirname(mdPath));
+        if (resolved) {
+          try {
+            const imgBuf = fs.readFileSync(resolved);
+            const dims = readPngSize(imgBuf);
+            let w = IMAGE_MAX_WIDTH, h = Math.round(IMAGE_MAX_WIDTH * 0.6);
+            if (dims && dims.w > 0) { const s = IMAGE_MAX_WIDTH / dims.w; w = IMAGE_MAX_WIDTH; h = Math.round(dims.h * s); }
+            content.push(para(
+              new ImageRun({ data: imgBuf, transformation: { width: w, height: h }, altText: { title: el.alt || "", description: el.alt || "" } }),
+              { alignment: AlignmentType.CENTER, spacing: { before: 120, after: 60 } }
+            ));
+            if (el.alt) {
+              content.push(para(txt(el.alt, { size: 18, color: C.captionGray, italics: true }), { alignment: AlignmentType.CENTER, spacing: { after: 120 } }));
+            }
+          } catch (e) {
+            content.push(para(txt(`[图表加载失败: ${path.basename(resolved)} — ${e.message}]`, { size: 20, color: C.captionGray, italics: true }),
+              { alignment: AlignmentType.CENTER, spacing: { before: 120, after: 120 } }));
+          }
+        } else {
+          content.push(para(txt(`[图表: ${el.alt || el.src}，见 diagrams/ 目录]`, { size: 20, color: C.captionGray, italics: true }),
+            { alignment: AlignmentType.CENTER, spacing: { before: 120, after: 120 } }));
+        }
         prevType = "image";
         break;
+      }
     }
   }
   // 末尾如果最后元素是表格/表注，也需要 flush
