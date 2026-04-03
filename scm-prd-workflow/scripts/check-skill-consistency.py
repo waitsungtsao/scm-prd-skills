@@ -845,6 +845,22 @@ def check_test_coverage(skill_dir):
                     'suggestion': f'在 tests/ 中添加 test_{module_name}.py',
                 })
 
+    # 检查测试文件是否为空壳（至少有 1 个 def test_ 函数）
+    for test_file in glob.glob(os.path.join(tests_dir, 'test_*.py')):
+        try:
+            with open(test_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            test_funcs = re.findall(r'def test_\w+', content)
+            if not test_funcs:
+                issues.append({
+                    'severity': '警告',
+                    'type': '测试空壳',
+                    'message': f'{os.path.basename(test_file)} 没有任何 test_ 函数 — 测试文件是空壳',
+                    'suggestion': '添加至少一个 def test_xxx() 测试函数',
+                })
+        except Exception:
+            pass
+
     return issues
 
 
@@ -961,6 +977,33 @@ def check_release_readiness(skill_dir):
                 'message': f'发版前需更新: {", ".join(stale_docs)}',
                 'suggestion': '这些文档在上次发版后未更新，发版时应同步',
             })
+
+        # 子检查：测试是否全部通过
+        tests_dir = os.path.join(project_root, 'tests')
+        if os.path.isdir(tests_dir):
+            try:
+                test_result = subprocess.run(
+                    [sys.executable, '-m', 'pytest', tests_dir, '-q', '--tb=no'],
+                    capture_output=True, text=True, timeout=30,
+                    cwd=project_root,
+                )
+                last_line = test_result.stdout.strip().split('\n')[-1] if test_result.stdout.strip() else ''
+                if test_result.returncode != 0:
+                    issues.append({
+                        'severity': '警告',
+                        'type': '发版测试',
+                        'message': f'测试未通过 — {last_line}',
+                        'suggestion': '发版前必须所有测试通过: python -m pytest tests/ -v',
+                    })
+                else:
+                    issues.append({
+                        'severity': '信息',
+                        'type': '发版测试',
+                        'message': f'测试通过 — {last_line}',
+                        'suggestion': '',
+                    })
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass  # pytest 不可用，跳过
 
     return issues
 

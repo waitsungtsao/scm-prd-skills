@@ -51,6 +51,23 @@ if [ -f "scm-prd-workflow/scripts/check-skill-consistency.py" ]; then
     fi
 fi
 
+# 测试新鲜度检查：脚本改了但对应测试没改 → 提醒
+CHANGED_SCRIPTS=$(git diff --cached --name-only -- 'scm-*/scripts/*.py')
+if [ -n "$CHANGED_SCRIPTS" ]; then
+    while IFS= read -r script; do
+        [ -z "$script" ] && continue
+        module=$(basename "$script" .py | tr '-' '_')
+        [ "$module" = "__init__" ] || [ "$module" = "check_skill_consistency" ] && continue
+        # 检查对应测试是否也在本次变更中
+        if ! git diff --cached --name-only -- "tests/test_${module}*.py" | grep -q .; then
+            # 测试文件存在但未修改 → 提醒（不阻止）
+            if ls tests/test_${module}*.py >/dev/null 2>&1; then
+                echo "  提醒: $script 已修改但 tests/test_${module}.py 未更新 — 确认测试仍然有效"
+            fi
+        fi
+    done <<< "$CHANGED_SCRIPTS"
+fi
+
 # 运行测试（如果有脚本/测试文件变更）
 TEST_FILES=$(git diff --cached --name-only -- 'tests/*.py' 'scm-*/scripts/*.py')
 if [ -n "$TEST_FILES" ] && command -v python3 >/dev/null 2>&1; then
