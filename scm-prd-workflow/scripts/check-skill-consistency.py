@@ -12,7 +12,7 @@ check-skill-consistency.py — Skill 定义文件自检工具
  7. Gate ID 集成验证
  8. 脚本可执行冒烟测试（import / node --check）
  9. Reference 加载表 ↔ references/ 目录对齐
-10. 文档新鲜度（README + CONTRIBUTING vs CHANGELOG 时间对比）
+10. 发版就绪检测（git log 语义信号 + 文档新鲜度）
 11. 数值断言同步（SKILL.md 中的章节数/维度数/CK范围 vs reference 实际）
 12. 模板占位符完整性（templates/ 中的 {占位符} 是否在指引中有引用）
 
@@ -792,59 +792,119 @@ def check_loading_table(files, skill_dir):
     return issues
 
 
-def check_doc_freshness(skill_dir):
-    """检查10: 文档新鲜度（README + CONTRIBUTING vs CHANGELOG 时间对比）。
+def check_release_readiness(skill_dir):
+    """检查10: 发版就绪检测。
 
-    README 和 CONTRIBUTING 应随 CHANGELOG 同步更新。
-    两者绑定提醒——改了一个就应检查另一个是否也需要更新。
+    基于 git log 语义信号判断是否应该发版，发版时附带文档新鲜度检查。
+    替代原 check_doc_freshness — 文档新鲜度作为发版检查的子逻辑。
     """
     issues = []
     project_root = os.path.join(skill_dir, '..')
-    changelog = os.path.join(project_root, 'CHANGELOG.md')
-    if not os.path.isfile(changelog):
-        return issues
 
-    changelog_mtime = os.path.getmtime(changelog)
-    import datetime
+    # --- 读取 git 状态 ---
+    try:
+        # 最新 tag
+        latest_tag = subprocess.run(
+            ['git', 'describe', '--tags', '--abbrev=0'],
+            capture_output=True, text=True, timeout=5,
+            cwd=project_root,
+        )
+        if latest_tag.returncode != 0:
+            return issues  # 无 tag 历史，跳过
+        tag = latest_tag.stdout.strip()
 
-    # 检查 README 和 CONTRIBUTING 对 CHANGELOG 的新鲜度
-    doc_pair = [
-        ('README.md', '项目介绍、安装、使用、结构'),
-        ('CONTRIBUTING.md', '维护者导引、文件职责、检查清单'),
-        ('CLAUDE.md', 'AI 项目指引、架构、设计原则、约定'),
-    ]
+        # 自上次 tag 以来的 commits（conventional commit type 分组）
+        log_result = subprocess.run(
+            ['git', 'log', f'{tag}..HEAD', '--oneline', '--format=%s'],
+            capture_output=True, text=True, timeout=5,
+            cwd=project_root,
+        )
+        if log_result.returncode != 0:
+            return issues
+        commits = [line.strip() for line in log_result.stdout.strip().split('\n') if line.strip()]
 
-    stale_docs = []
-    for doc_name, desc in doc_pair:
-        doc_path = os.path.join(project_root, doc_name)
-        if not os.path.isfile(doc_path):
-            continue
-        doc_mtime = os.path.getmtime(doc_path)
-        if changelog_mtime > doc_mtime:
-            delta = datetime.timedelta(seconds=changelog_mtime - doc_mtime)
-            if delta.days >= 1:
-                stale_docs.append((doc_name, delta.days, desc))
+        if not commits:
+            return issues  # tag 就是最新，无未发布变更
 
-    for doc_name, days, desc in stale_docs:
+        # 分类 commits
+        feat_commits = [c for c in commits if c.startswith('feat:') or c.startswith('feat(')]
+        fix_commits = [c for c in commits if c.startswith('fix:') or c.startswith('fix(')]
+        refactor_commits = [c for c in commits if c.startswith('refactor:')]
+
+        # SKILL.md 是否有变更
+        skill_changed = subprocess.run(
+            ['git', 'diff', '--name-only', f'{tag}..HEAD', '--', '*/SKILL.md'],
+            capture_output=True, text=True, timeout=5,
+            cwd=project_root,
+        )
+        skill_md_changed = bool(skill_changed.stdout.strip())
+
+        # 自上次 tag 的天数
+        tag_date = subprocess.run(
+            ['git', 'log', '-1', '--format=%ct', tag],
+            capture_output=True, text=True, timeout=5,
+            cwd=project_root,
+        )
+        import datetime
+        days_since_tag = 0
+        if tag_date.returncode == 0 and tag_date.stdout.strip():
+            tag_ts = int(tag_date.stdout.strip())
+            days_since_tag = (datetime.datetime.now().timestamp() - tag_ts) / 86400
+
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return issues  # git 不可用，跳过
+
+    # --- 发版信号判断 ---
+    reasons = []
+
+    if len(feat_commits) >= 3:
+        reasons.append(f'{len(feat_commits)} 个新功能')
+    if skill_md_changed and feat_commits:
+        reasons.append('SKILL.md 行为已变化')
+    if days_since_tag >= 7 and (feat_commits or fix_commits):
+        reasons.append(f'已 {int(days_since_tag)} 天未发版')
+
+    if reasons:
+        summary = '、'.join(reasons)
+        commit_breakdown = []
+        if feat_commits:
+            commit_breakdown.append(f'{len(feat_commits)} feat')
+        if fix_commits:
+            commit_breakdown.append(f'{len(fix_commits)} fix')
+        if refactor_commits:
+            commit_breakdown.append(f'{len(refactor_commits)} refactor')
+        breakdown = ', '.join(commit_breakdown)
+
         issues.append({
             'severity': '警告',
-            'type': '文档新鲜度',
-            'message': f'{doc_name} 比 CHANGELOG.md 旧 {days} 天 — 可能需要同步更新（{desc}）',
-            'suggestion': f'检查 CHANGELOG 中的最新变更是否已反映到 {doc_name}',
+            'type': '建议发版',
+            'message': f'自 {tag} 以来有 {len(commits)} 个未发布 commit（{breakdown}）— {summary}',
+            'suggestion': f'考虑发版。发版前同步更新 CHANGELOG + README + CONTRIBUTING + CLAUDE.md',
         })
 
-    # 绑定提醒：README / CONTRIBUTING / CLAUDE.md 应同步更新
-    all_doc_names = [name for name, _ in doc_pair]
-    stale_names = {d[0] for d in stale_docs}
-    fresh_names = [n for n in all_doc_names if n not in stale_names
-                   and os.path.isfile(os.path.join(project_root, n))]
-    if stale_docs and fresh_names:
-        issues.append({
-            'severity': '信息',
-            'type': '文档同步',
-            'message': f'{", ".join(fresh_names)} 已更新但 {", ".join(stale_names)} 未同步',
-            'suggestion': f'README / CONTRIBUTING / CLAUDE.md 描述同一个项目，建议一起更新',
-        })
+        # 子检查：文档是否比最新 tag 更旧
+        docs_to_check = [
+            ('README.md', '项目介绍'),
+            ('CONTRIBUTING.md', '维护者导引'),
+            ('CLAUDE.md', 'AI 项目指引'),
+            ('CHANGELOG.md', '版本记录'),
+        ]
+        stale_docs = []
+        for doc_name, desc in docs_to_check:
+            doc_path = os.path.join(project_root, doc_name)
+            if os.path.isfile(doc_path):
+                doc_mtime = os.path.getmtime(doc_path)
+                if tag_date.returncode == 0 and tag_date.stdout.strip():
+                    if doc_mtime < tag_ts:
+                        stale_docs.append(doc_name)
+
+        if stale_docs:
+            issues.append({
+                'severity': '信息',
+                'type': '发版文档',
+                'message': f'发版前需更新: {", ".join(stale_docs)}',
+                'suggestion': '这些文档在上次发版后未更新，发版时应同步',
+            })
 
     return issues
 
@@ -886,7 +946,7 @@ def main():
     all_issues.extend(check_template_placeholders(files))
     all_issues.extend(check_script_smoke(skill_dir))
     all_issues.extend(check_loading_table(files, skill_dir))
-    all_issues.extend(check_doc_freshness(skill_dir))
+    all_issues.extend(check_release_readiness(skill_dir))
 
     critical = [i for i in all_issues if i['severity'] == '关键']
     warnings = [i for i in all_issues if i['severity'] == '警告']
@@ -901,11 +961,11 @@ def main():
             parts.append(f"{len(warnings)} warnings")
         if infos:
             parts.append(f"{len(infos)} info")
-        # 附加文档新鲜度提醒
-        doc_issues = [i for i in all_issues if i['type'] == '文档新鲜度']
-        doc_hint = f" | {doc_issues[0]['message']}" if doc_issues else ""
+        # 附加发版提醒
+        release_issues = [i for i in all_issues if i['type'] == '建议发版']
+        release_hint = f" | {release_issues[0]['message']}" if release_issues else ""
         summary = ', '.join(parts) if parts else "all clear"
-        print(f"skill-check: {summary}{doc_hint}")
+        print(f"skill-check: {summary}{release_hint}")
         sys.exit(1 if critical else 0)
 
     # Verbose mode: 完整报告

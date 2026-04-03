@@ -6,7 +6,7 @@
 
 ## [2026.04.7] - 2026-04-04
 
-本版本为全面 review 后的系统性升级，覆盖技术健壮性、流程管控、语义检查、反冗余机制四个维度。
+本版本为全面 review 后的系统性升级，覆盖技术健壮性、流程管控、语义检查、反冗余机制、质量基础设施五个维度。
 
 ### Added
 
@@ -32,6 +32,7 @@
 - **allow_remote_render 配置**：export-diagrams.py 支持通过 .scm-prd-config.yaml 禁用 mermaid.ink
 - **check-skill-consistency.py 升级至 12 类检查**：新增横切概念自动发现、脚本冒烟测试、加载表对齐、文档新鲜度（README+CONTRIBUTING 绑定）、数值断言同步、模板占位符完整性、Gate ID 集成验证
 - **pre-commit hook**（.githooks/pre-commit）：skill 文件变更时自动运行一致性检查 + 测试，结果输出到 .skill-check-report
+- **发版就绪检测**（check-skill-consistency.py）：基于 git log 语义信号（≥3 feat / SKILL.md 变更 / ≥7 天未发版）自动提醒发版，附带文档新鲜度检查，替代原文档新鲜度独立检查
 - **CONTRIBUTING.md**：维护者导引——文件职责地图、变更检查清单、hook 说明
 - **README.md 全面重写**：对齐当前实际状态
 

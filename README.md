@@ -194,7 +194,9 @@ python3 scm-prd-workflow/scripts/check-skill-consistency.py scm-prd-workflow --s
 
 激活 hook 后，提交 skill 文件时自动运行一致性检查（有 critical 阻止提交），提交脚本时自动跑测试。
 
-`check-skill-consistency.py` 覆盖 12 类检查：文件引用 / 模板字段 / 交互 ID / 章节引用 / 术语一致 / 横切概念（自动发现） / Gate ID 集成 / 脚本冒烟 / 加载表对齐 / 文档新鲜度 / 数值断言同步 / 模板占位符。
+`check-skill-consistency.py` 覆盖 12 类检查：文件引用 / 模板字段 / 交互 ID / 章节引用 / 术语一致 / 横切概念（自动发现） / Gate ID 集成 / 脚本冒烟 / 加载表对齐 / 发版就绪检测 / 数值断言同步 / 模板占位符。
+
+发版就绪检测基于 git log 语义信号：≥3 feat commit / SKILL.md 变更 / ≥7 天未发版时提醒，附带文档新鲜度检查。
 
 ## 版本策略
 
