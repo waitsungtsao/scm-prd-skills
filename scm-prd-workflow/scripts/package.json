@@ -1,0 +1,10 @@
+{
+  "name": "scm-prd-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node.js dependencies for scm-prd-workflow skill scripts (md2docx, etc.)",
+  "type": "module",
+  "dependencies": {
+    "docx": ">=9.0.0"
+  }
+}

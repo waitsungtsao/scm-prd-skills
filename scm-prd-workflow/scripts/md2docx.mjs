@@ -4,27 +4,40 @@
  *
  * 基于 scm-prd-style 规范的 Markdown→Word 转换器。
  * 用法: node md2docx.mjs <PRD.md文件路径>
- * 依赖: npm install -g docx（全局安装，也兼容本地 node_modules）
+ * 依赖: cd scripts && npm install（推荐），或 npm install -g docx（全局备选）
  */
 import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
 import { execSync } from "child_process";
+import { fileURLToPath } from "url";
 
-// 依赖解析：优先本地 node_modules → 其次全局（支持 npm install -g docx）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 依赖解析：scripts/node_modules → 项目 cwd → 全局 npm → 报错
 function loadDocx() {
-  // 1. 尝试本地 node_modules（兼容项目级安装）
+  // 1. 优先: scripts/ 目录自身的 node_modules（npm install in scripts/）
   try {
-    const localReq = createRequire(path.join(process.cwd(), "package.json"));
-    return localReq("docx");
+    const scriptsReq = createRequire(path.join(__dirname, "package.json"));
+    return scriptsReq("docx");
   } catch {}
-  // 2. 尝试全局 node_modules
+  // 2. 项目 cwd 的 node_modules（兼容项目级安装）
+  try {
+    const cwdReq = createRequire(path.join(process.cwd(), "package.json"));
+    return cwdReq("docx");
+  } catch {}
+  // 3. 全局 node_modules（兼容 npm install -g docx）
   try {
     const globalRoot = execSync("npm root -g", { encoding: "utf-8" }).trim();
     const globalReq = createRequire(path.join(path.dirname(globalRoot), "_resolve.js"));
     return globalReq("docx");
   } catch {}
-  console.error("错误: 需要 docx 库。请运行: npm install -g docx");
+  console.error(
+    "错误: 需要 docx 库。请运行:\n" +
+    `  cd ${__dirname} && npm install    (推荐)\n` +
+    "  npm install -g docx               (全局备选)"
+  );
   process.exit(1);
 }
 
