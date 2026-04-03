@@ -221,6 +221,7 @@
 3. 输出最终文件列表
 4. 如 `diagrams/` 目录包含 `.drawio` 文件，提示用户："流程图也已输出为 draw.io 格式（`diagrams/*.drawio`），如需调整布局或细节可用 draw.io 编辑器打开编辑"
 5. **不主动提供Word输出选项**（用户可自行要求）
+6. **更新约束索引**（简化版）：提取 `prd_id`、`version`、`requirement_type`、`functions`、`scope_in` 到 `requirements/_constraints-index.yaml`。轻量 PRD 无独立接口/实体章节，其余字段留空数组（详见 `references/phase4-review.md` "约束索引提取"）
 
 ---
 

@@ -4,6 +4,22 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.5] - 2026-04-03
+
+### Added
+
+- **叙事规划反模式自检 NP-01~NP-05**（phase3-write.md）：叙事规划输出前静默执行 5 项结构化检查（泛化叙事、平铺罗列、图表堆砌、脱离 intake、无主次），最多自修正 2 轮。autonomous-mode.md 同步引用
+- **约束索引 `_constraints-index.yaml`**（phase4-review.md, autonomous-mode.md, lite-mode.md）：PRD 交付时自动提取接口、实体、规则等结构化约束到 YAML 索引文件，新 PRD 启动时直接读取索引实现确定性的跨 PRD 一致性检查。新增 `templates/constraints-index-template.yaml`
+- **修订模式 RV-A~RV-D**（SKILL.md, revision-mode.md）：对已交付 PRD 进行版本升级的完整流程——读取理解→增量规划→增量撰写→修订审查。支持评审返工、需求追加、上游变更三种场景。新增 `references/revision-mode.md`、`templates/revision-diff-template.md`
+- **跨 PRD 影响分析**（revision-mode.md）：修订审查阶段通过约束索引检测本次变更对其他 PRD 的接口/实体/规则影响，输出结构化影响报告
+
+### Changed
+
+- **SKILL.md 初始化步骤 4**：从"扫描已有 PRD"改为"读取约束索引"，不存在时降级为扫描并提示下次交付自动生成
+- **SKILL.md 初始化步骤 3**：新增已完成 PRD 的修订入口检测，MC-01 前提供"新建/修订"选择
+- **交互 ID 速查表**：新增 RV-01（修订类型选择）、RV-02（修订章节详略）、RV-03（修订交付确认）
+- **Reference 加载表**：新增 `revision-mode.md` 条目
+
 ## [2026.04.4] - 2026-04-01
 
 ### Changed

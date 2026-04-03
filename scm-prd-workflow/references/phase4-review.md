@@ -370,6 +370,7 @@ review_date: YYYY-MM-DD
 4. 将所有产出文件呈现给用户
 5. 如 `diagrams/` 目录包含 `.drawio` 文件，提示用户："流程图也已输出为 draw.io 格式（`diagrams/*.drawio`），如需调整布局或细节可用 draw.io 编辑器打开编辑"
 6. 如用户选择补充知识库，引导使用 scm-knowledge-curator 技能
+7. **更新约束索引**：将本次 PRD 的关键约束提取到 `requirements/_constraints-index.yaml`（提取规则见下方"约束索引提取"章节）
 
 #### 交付精要提取规则
 
@@ -399,6 +400,31 @@ review_date: YYYY-MM-DD
 ```
 
 **提取原则**：仅聚合 PRD 中已有信息，不产生新内容；每个表格无内容时省略该节。
+
+#### 约束索引提取
+
+PRD 交付时，自动提取结构化约束到 `requirements/_constraints-index.yaml`，供后续 PRD 启动时读取，实现跨 PRD 一致性的确定性检查。
+
+**YAML 结构参考**：`templates/constraints-index-template.yaml`
+
+**提取映射表**：
+
+| PRD 章节 | YAML 字段 | 提取内容 |
+|---------|-----------|---------|
+| front matter | `prd_id`, `version`, `status`, `requirement_type` | 直接读取 |
+| §2.4 目标与指标 | `goals` | G-XX ID + 一句话摘要 |
+| §2.5 范围 | `scope_in`, `scope_out` | 纳入/排除范围列表 |
+| §4 变更总览 | `changes` | C-XX ID + 摘要 + 影响系统（仅 update/mixed） |
+| §6 功能与规则 | `functions` | F-XXX ID + 名称 |
+| §6 关键规则 | `key_rules` | 每个功能点的核心规则一句话摘要 |
+| §7.2 数据模型 | `entities` | 实体名 + new/existing + 归属系统 |
+| §7.4 接口 | `interfaces` | IF-XXX ID + 名称 + 方向 + 关键字段 |
+
+**语义规则**：
+- **按 prd_id 匹配**：每次交付只更新本 PRD 的条目，不修改其他 PRD 的条目
+- **文件不存在时创建**：首次交付时，以 `templates/constraints-index-template.yaml` 的注释头为基础创建文件，替换示例条目为实际数据
+- **修订 PRD 时**：更新 `version`、`last_updated`，以及所有变更的字段
+- **轻量模式简化提取**：轻量 PRD 无独立接口/实体/变更章节，仅提取 `prd_id`、`version`、`requirement_type`、`functions`、`scope_in`；其余字段留空数组 `[]`
 
 ---
 
