@@ -19,7 +19,14 @@ SKILL_FILES=$(git diff --cached --name-only -- \
 )
 
 if [ -z "$SKILL_FILES" ]; then
-    exit 0  # 没有 skill 文件变更，跳过
+    # 非 skill 文件提交：只跑发版检测（轻量，~0.5秒）
+    if [ -f "scm-prd-workflow/scripts/check-skill-consistency.py" ]; then
+        RELEASE_CHECK=$(python3 scm-prd-workflow/scripts/check-skill-consistency.py scm-prd-workflow --short 2>&1)
+        if echo "$RELEASE_CHECK" | grep -q "建议发版"; then
+            echo "$RELEASE_CHECK"
+        fi
+    fi
+    exit 0
 fi
 
 # 初始化 report
