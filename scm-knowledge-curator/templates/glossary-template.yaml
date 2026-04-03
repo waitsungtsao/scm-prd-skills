@@ -7,9 +7,9 @@
 #   term:        术语名称（中文）
 #   english:     英文名称/缩写（可选）
 #   definition:  术语定义（一句话，精确无歧义）
-#   domain:      所属业务领域列表（可选值：oms, wms, tms, bms, common）
+#   domain:      所属业务领域列表（可选值：OMS, WMS, TMS, BMS, common）
 #   related:     关联术语列表（可选）
-#   source:      信息来源（interview=口述, document=文档, inference=推测）
+#   source:      信息来源（interview=口述, document=文档, inference=推测, observation=观察）
 #   confirmed:   确认状态（true=用户确认, partial=大方向确认但细节待补充, false=未经确认）
 #
 # 使用约定：
@@ -21,7 +21,7 @@ glossary:
   - term: 出库单
     english: Outbound Order
     definition: 仓库根据订单或调拨指令生成的出库作业单据，驱动拣货、复核、打包、发运流程
-    domain: [wms]
+    domain: [WMS]
     related: [拣货单, 发货单]
     source: document
     confirmed: true
@@ -29,7 +29,7 @@ glossary:
   - term: 履约
     english: Fulfillment
     definition: 从接收客户订单到完成交付的全过程，包括订单处理、仓储作业、运输配送
-    domain: [oms, wms, tms]
+    domain: [OMS, WMS, TMS]
     related: [订单, 出库单, 运单]
     source: interview
     confirmed: true
@@ -37,7 +37,7 @@ glossary:
   - term: 分仓
     english: Warehouse Allocation
     definition: 系统根据规则（距离、库存、成本等）将订单分配到具体执行仓库的过程
-    domain: [oms, wms]
+    domain: [OMS, WMS]
     related: [履约, 库存]
     source: interview
     confirmed: partial

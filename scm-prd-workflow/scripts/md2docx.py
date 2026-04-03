@@ -2,6 +2,9 @@
 """
 md2docx.py — PRD Markdown → Word 文档转换（含图片嵌入）
 
+维护状态: 降级备选方案。推荐使用 md2docx.mjs（Node.js 版，排版精度更高）。
+本文件仅在用户无 Node.js 环境时作为 fallback 使用，不再追求与 JS 版功能对齐。
+
 将 PRD Markdown 文件转换为 Word (.docx) 格式，自动嵌入 diagrams/ 目录下的 PNG 图片。
 
 用法:

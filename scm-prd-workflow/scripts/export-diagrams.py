@@ -26,6 +26,7 @@ import argparse
 from pathlib import Path
 from urllib.request import urlretrieve, Request, urlopen
 from urllib.error import URLError
+import time
 
 # =============================================================================
 # 常量
@@ -284,9 +285,15 @@ def main() -> int:
             else:
                 png_failed += 1
 
-    # 阶段3: .mermaid → .png（经由 mermaid.ink API）
+    # 阶段3: .mermaid → .png（经由 mmdc 本地 或 mermaid.ink API）
+    _last_ink_call = 0
     for f in mermaid_files:
+        # mermaid.ink API 限流：至少间隔 1 秒，避免批量导出触发 429
+        now = time.monotonic()
+        if now - _last_ink_call < 1.0:
+            time.sleep(1.0 - (now - _last_ink_call))
         result = export_mermaid(f, force=args.force)
+        _last_ink_call = time.monotonic()
         if result == "success":
             png_success += 1
         elif result == "skipped":

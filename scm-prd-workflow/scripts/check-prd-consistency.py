@@ -35,19 +35,19 @@ def detect_prd_mode(content):
     mode = 'full'  # full / lite
     requirement_type = 'new'  # new / update / mixed
 
-    # 从 front matter 检测
-    if content.startswith('---'):
-        end = content.find('---', 3)
-        if end > 0:
-            fm = content[3:end]
-            if 'mode: lite' in fm:
-                mode = 'lite'
-            for line in fm.split('\n'):
-                line = line.strip()
-                if line.startswith('requirement_type:'):
-                    val = line.split(':', 1)[1].strip().strip('"\'')
-                    if val in ('update', 'mixed', 'new'):
-                        requirement_type = val
+    # 从 front matter 检测 — 只匹配行首的 --- 作为分隔符，
+    # 避免 PRD 正文中的 --- 水平线被误判为 front matter 边界
+    fm_match = re.match(r'\A---[ \t]*\n(.*?\n)---[ \t]*\n', content, re.DOTALL)
+    if fm_match:
+        fm = fm_match.group(1)
+        if 'mode: lite' in fm:
+            mode = 'lite'
+        for line in fm.split('\n'):
+            line = line.strip()
+            if line.startswith('requirement_type:'):
+                val = line.split(':', 1)[1].strip().strip('"\'')
+                if val in ('update', 'mixed', 'new'):
+                    requirement_type = val
 
     # 兜底：按章节数判断
     chapter_count = len(re.findall(r'^##\s+第\d+章', content, re.MULTILINE))

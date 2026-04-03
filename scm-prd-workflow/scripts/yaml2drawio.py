@@ -63,17 +63,26 @@ DEFAULT_NODE_SIZES = {
     'document':   (120, 60),
 }
 
-# 每个中文字符约 14px 宽（12pt 字体），英文约 7px
+# 字符宽度估算（12pt 字体基准）
+# CJK 全角字符约 14px，ASCII 约 7px，标点/符号按 ASCII 计
 CHAR_WIDTH_CJK = 14
 CHAR_WIDTH_ASCII = 7
-NODE_PADDING = 20  # 节点内边距（左右各 10px）
+NODE_PADDING = 24  # 节点内边距（左右各 12px，比原来多 4px 做安全余量）
 
 
 def _estimate_label_width(label):
-    """估算标签渲染宽度（px）。"""
+    """估算标签渲染宽度（px）。
+    按 Unicode 区间分类：CJK 统一表意文字及扩展、全角字符用 CJK 宽度，
+    其余用 ASCII 宽度。比简单 ord>127 更准确（避免拉丁扩展字符被误判为全角）。"""
     width = 0
     for ch in label:
-        if ord(ch) > 127:
+        cp = ord(ch)
+        # CJK Unified Ideographs, CJK Ext-A, CJK Compatibility, Fullwidth Forms,
+        # Hangul, Kana, Bopomofo
+        if (0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF
+                or 0xF900 <= cp <= 0xFAFF or 0xFF01 <= cp <= 0xFF60
+                or 0x3000 <= cp <= 0x303F or 0x3040 <= cp <= 0x30FF
+                or 0xAC00 <= cp <= 0xD7AF):
             width += CHAR_WIDTH_CJK
         else:
             width += CHAR_WIDTH_ASCII
