@@ -29,13 +29,13 @@ class TestDetectPrdMode:
 
     def test_full_mode_detected(self):
         content = _read_fixture('prd_clean.md')
-        mode, req_type = check_prd.detect_prd_mode(content)
+        mode, req_type, *_ = check_prd.detect_prd_mode(content)
         assert mode == 'full'
         assert req_type == 'new'
 
     def test_lite_mode_from_frontmatter(self):
         content = _read_fixture('prd_lite.md')
-        mode, req_type = check_prd.detect_prd_mode(content)
+        mode, req_type, *_ = check_prd.detect_prd_mode(content)
         assert mode == 'lite'
         assert req_type == 'update'
 
@@ -44,7 +44,7 @@ class TestDetectPrdMode:
         content = "---\nrequirement_type: new\n---\n"
         for i in range(1, 7):
             content += f"\n## 第{i}章 Title\n\nContent.\n"
-        mode, _ = check_prd.detect_prd_mode(content)
+        mode, *_ = check_prd.detect_prd_mode(content)
         assert mode == 'lite'
 
 
@@ -58,7 +58,7 @@ class TestCleanPrd:
     def test_no_critical_issues(self):
         content = _read_fixture('prd_clean.md')
         lines = content.split('\n')
-        mode, req_type = check_prd.detect_prd_mode(content)
+        mode, req_type, *_ = check_prd.detect_prd_mode(content)
 
         issues = check_prd.check_id_consistency(content, lines, skip_prefixes={'C'})
         critical = [i for i in issues if i['severity'] == '关键']
@@ -137,7 +137,7 @@ class TestLiteMode:
     def test_lite_skips_c_and_if(self):
         content = _read_fixture('prd_lite.md')
         lines = content.split('\n')
-        mode, _ = check_prd.detect_prd_mode(content)
+        mode, *_ = check_prd.detect_prd_mode(content)
         assert mode == 'lite'
 
         # With lite skip_prefixes, no errors about C or IF

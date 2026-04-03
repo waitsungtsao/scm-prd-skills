@@ -31,9 +31,16 @@ from collections import defaultdict
 # =============================================================================
 
 def detect_prd_mode(content):
-    """检测 PRD 模式和需求类型，用于自适应检查。"""
+    """检测 PRD 模式、需求类型和自定义章节-ID映射，用于自适应检查。
+
+    Returns:
+        (mode, requirement_type, chapter_id_map_override)
+        chapter_id_map_override: dict or None — 从 front matter 的 chapter_id_map 解析，
+        格式 {'G': '第2章', 'F': '第6章', ...}，未提供时为 None（使用硬编码默认值）。
+    """
     mode = 'full'  # full / lite
     requirement_type = 'new'  # new / update / mixed
+    chapter_id_map_override = None
 
     # 从 front matter 检测 — 只匹配行首的 --- 作为分隔符，
     # 避免 PRD 正文中的 --- 水平线被误判为 front matter 边界
@@ -42,6 +49,7 @@ def detect_prd_mode(content):
         fm = fm_match.group(1)
         if 'mode: lite' in fm:
             mode = 'lite'
+        # 解析 requirement_type
         for line in fm.split('\n'):
             line = line.strip()
             if line.startswith('requirement_type:'):
@@ -49,12 +57,41 @@ def detect_prd_mode(content):
                 if val in ('update', 'mixed', 'new'):
                     requirement_type = val
 
+        # 解析 chapter_id_map（简易 YAML 缩进解析，无需外部依赖）
+        # 格式示例:
+        #   chapter_id_map:
+        #     G: 2
+        #     F: 6
+        fm_lines = fm.split('\n')
+        in_map = False
+        parsed_map = {}
+        for line in fm_lines:
+            stripped = line.strip()
+            if stripped.startswith('chapter_id_map:'):
+                # 检查是否为单行空值（即后续缩进行才是内容）
+                after_colon = stripped.split(':', 1)[1].strip()
+                if not after_colon or after_colon.startswith('#'):
+                    in_map = True
+                continue
+            if in_map:
+                # 缩进行属于 map；非缩进或空行结束
+                if line.startswith((' ', '\t')) and ':' in stripped:
+                    key, val = stripped.split(':', 1)
+                    key = key.strip().strip('"\'')
+                    val = val.strip().split('#')[0].strip().strip('"\'')
+                    if key in ID_PATTERNS and val.isdigit():
+                        parsed_map[key] = f'第{val}章'
+                else:
+                    in_map = False
+        if parsed_map:
+            chapter_id_map_override = parsed_map
+
     # 兜底：按章节数判断
     chapter_count = len(re.findall(r'^##\s+第\d+章', content, re.MULTILINE))
     if chapter_count <= 7 and mode != 'lite':
         mode = 'lite'
 
-    return mode, requirement_type
+    return mode, requirement_type, chapter_id_map_override
 
 
 # =============================================================================
@@ -124,13 +161,17 @@ def find_definition_and_reference(lines, prefix):
     return id_locations
 
 
-def check_id_consistency(content, lines, skip_prefixes=None, lenient_unreferenced=False):
+def check_id_consistency(content, lines, skip_prefixes=None, lenient_unreferenced=False,
+                         definition_chapters=None):
     """检查所有 ID 的定义与引用完整性。
 
     Args:
         skip_prefixes: 跳过检查的 ID 前缀集合（如 lite 模式跳过 IF/BR）
         lenient_unreferenced: 是否将"已定义未引用"降级为信息级别（update 模式下按需生成章节可能导致）
+        definition_chapters: ID前缀→定义章节映射（用于建议文本），None 时使用硬编码默认值
     """
+    if definition_chapters is None:
+        definition_chapters = DEFINITION_CHAPTERS
     issues = []
     if skip_prefixes is None:
         skip_prefixes = set()
@@ -148,7 +189,7 @@ def check_id_consistency(content, lines, skip_prefixes=None, lenient_unreference
                     'severity': '关键',
                     'type': 'ID未定义',
                     'message': f'{full_id} 被引用（{ref_lines}）但未找到定义位置',
-                    'suggestion': f'在{DEFINITION_CHAPTERS.get(prefix, "对应章节")}中添加 {full_id} 的定义',
+                    'suggestion': f'在{definition_chapters.get(prefix, "对应章节")}中添加 {full_id} 的定义',
                 })
             elif info['defined'] and not info['referenced']:
                 def_lines = ', '.join(f'L{loc[0]}' for loc in info['defined'][:3])
@@ -317,8 +358,18 @@ def main():
         content = f.read()
 
     lines = content.split('\n')
-    mode, requirement_type = detect_prd_mode(content)
+    mode, requirement_type, chapter_id_map_override = detect_prd_mode(content)
     print(f"检测到 PRD 模式: {mode}, 需求类型: {requirement_type}")
+
+    # 解析定义章节映射：front matter 自定义 > 模式默认值
+    if chapter_id_map_override:
+        # 以硬编码默认值为底，用 front matter 覆盖
+        base = (DEFINITION_CHAPTERS_LITE if mode == 'lite' else DEFINITION_CHAPTERS).copy()
+        base.update(chapter_id_map_override)
+        definition_chapters = base
+        print(f"使用自定义章节-ID映射: {chapter_id_map_override}")
+    else:
+        definition_chapters = DEFINITION_CHAPTERS_LITE if mode == 'lite' else DEFINITION_CHAPTERS
 
     # 根据模式和需求类型决定跳过的 ID 前缀
     skip_prefixes = set()
@@ -333,7 +384,8 @@ def main():
     lenient_unreferenced = requirement_type in ('update', 'mixed')
 
     all_issues = []
-    all_issues.extend(check_id_consistency(content, lines, skip_prefixes, lenient_unreferenced))
+    all_issues.extend(check_id_consistency(content, lines, skip_prefixes, lenient_unreferenced,
+                                           definition_chapters))
     all_issues.extend(check_fuzzy_words(content))
     if requirement_type in ('update', 'mixed'):
         all_issues.extend(check_change_coverage(content, lines))
