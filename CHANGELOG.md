@@ -4,6 +4,33 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.7] - 2026-04-04
+
+### Added
+
+- **基础测试集 P1**：41 个 pytest 测试覆盖 diagram_core、yaml2drawio、check-prd-consistency、check-knowledge-consistency（`python -m pytest tests/ -v`）
+- **diagram_core.py 共享模块 P5**：从 yaml2drawio.py（1246→489行）和 yaml2svg.py（689→554行）提取校验、布局、颜色常量、CJK 字体检测到共享模块（927行）
+- **package.json P7**：scripts/ 下新增 Node.js 依赖管理，md2docx.mjs 三级模块解析（local → project → global），修复 nvm/fnm/volta 兼容
+- **撰写前结构预校验 NP-06~08 P4**：ID 覆盖完整性、章节映射无遗漏、术语预检（phase3-write.md）
+- **门控 ID 集成验证 P10**：check-skill-consistency.py 新增 check_gate_id_integration()，从 core-conventions.md 交叉验证所有门控 ID
+- **逐章实时一致性检查 P12**：每完成主要章节后静默执行 CK 子集（phase3-write.md）
+- **修订快速路径 P11**：≤2 章节 ≤1 功能点的修订折叠为单次通过（revision-mode.md）
+- **自主模式复杂度检测 F1**：Stage A 末尾加权信号检测，≥5 分建议交互模式（autonomous-mode.md）
+- **快速线框 F2**：命中 ≥3 条原型触发条件时，叙事规划输出文字线框（phase3-write.md）
+- **交付后效果追踪 F4**：修订时可选记录原 PRD 偏差，沉淀为经验反馈（revision-mode.md）
+- **最小启动知识库 P14**：Workflow 首次使用时自动创建 knowledge-base/ 骨架
+- **allow_remote_render 配置 P13**：export-diagrams.py 支持通过 .scm-prd-config.yaml 禁用 mermaid.ink
+
+### Changed
+
+- **SKILL.md 瘦身 P2**：658→~590 行，交互 ID 速查表 + 标记体系 + 补充约束提取到 references/core-conventions.md
+- **快速初始化 P3**：session-state 存在时折叠步骤 1/2/4 为静默检查，直接跳转恢复位置
+- **门控渐进展示 P8**：progress-display.md 新增决策点预告（第 5 层）和决策配置复用
+- **复杂度评分透明化 P9**：SL-02 评分明细表新增 [待确认] 加分行和阈值显示
+- **Session State 原子写入 P19**：乐观写入 + 临时文件 rename 原子更新
+- **check-knowledge-consistency.py P6**：glossary 和 front matter 解析优先使用 PyYAML，降级正则
+- **check-prd-consistency.py F3**：支持 front matter chapter_id_map 自定义章节-ID 映射
+
 ## [2026.04.6] - 2026-04-03
 
 ### Added

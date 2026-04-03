@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Two Claude Code custom skills for supply chain (SCM) domain: knowledge curation and PRD production. **Documentation-only** project — no build, lint, or test commands. All content is Markdown, YAML, and shell/Python/JS scripts.
+Two Claude Code custom skills for supply chain (SCM) domain: knowledge curation and PRD production. All content is Markdown, YAML, and shell/Python/JS scripts. Test suite: `python -m pytest tests/ -v`.
 
 Versioning follows CalVer (`YYYY.MM.PATCH`), e.g. `v2026.03.0`.
 
@@ -24,7 +24,15 @@ Optional prototype integration (Stage D / post-review) produces `prototype-desig
 - `SKILL.md` — skill definition (system prompt). Changes directly affect behavior.
 - `references/` — operational guides loaded on-demand per phase (interview framework, phase instructions, diagram patterns, prototype planning, etc.)
 - `templates/` — output templates filled when generating artifacts (PRD templates, prototype brief/design templates)
-- `scripts/` — automation: `md2docx.mjs` (JS, recommended) / `md2docx.py` (Python, fallback) for Word generation; `yaml2drawio.py` for diagram conversion; `check-prd-consistency.py` for ID/terminology validation; `check-skill-consistency.py` for skill file cross-reference checks
+- `scripts/` — automation:
+  - `diagram_core.py` — shared layout engine, validation, color constants (imported by yaml2drawio + yaml2svg)
+  - `yaml2drawio.py` / `yaml2svg.py` — YAML DSL → draw.io XML / SVG+PNG
+  - `md2docx.mjs` (JS, recommended) / `md2docx.py` (Python, fallback) — Word generation
+  - `check-prd-consistency.py` — ID/terminology validation (supports custom `chapter_id_map` in front matter)
+  - `check-skill-consistency.py` — skill file cross-reference + gate ID integration checks
+  - `export-diagrams.py` — batch diagram export (supports `allow_remote_render` config flag)
+  - `package.json` — Node.js dependency management (`npm install` in scripts/ for docx library)
+- `tests/` — pytest test suite (41 tests) covering diagram generation, PRD consistency, knowledge consistency
 
 ## Runtime Outputs (gitignored)
 
