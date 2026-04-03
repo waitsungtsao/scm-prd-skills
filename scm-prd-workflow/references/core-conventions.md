@@ -24,6 +24,11 @@
 | RV-01 | 修订类型选择 | revision-mode.md | Stage RV-A |
 | RV-02 | 修订章节详略选择 | revision-mode.md | Stage RV-B |
 | RV-03 | 修订交付确认 | revision-mode.md | Stage RV-D |
+| NP-01~05 | 叙事反模式自检 | phase3-write.md | 叙事规划草稿完成后、CD-01 前（静默） |
+| NP-06~08 | 撰写前结构预校验 | phase3-write.md | NP-06 在 CD-01 前；NP-07~08 在 CD-01 后、撰写前 |
+| DG-01 | draw.io 生成降级 | diagram-patterns.md | python 不可用时首次遇到 YAML 图表 |
+| MT-01 | 需求类型推断通知 | SKILL.md | Phase 1 / Stage A / Stage L1（AI 自动推断后告知） |
+| CK-RV | 修订增量自检 | revision-mode.md | Stage RV-D |
 
 ---
 

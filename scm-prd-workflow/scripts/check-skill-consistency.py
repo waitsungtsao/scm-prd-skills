@@ -9,6 +9,7 @@ check-skill-consistency.py — Skill 定义文件自检工具
 4. 章节引用有效性（§X.X 引用是否指向存在的章节）
 5. 术语一致性（核心概念是否使用统一术语）
 6. 模式覆盖完整性（横切概念是否在三种模式中都有说明）
+7. Gate ID 集成验证（速查表与实际文件中 gate ID 的交叉一致性）
 
 用法:
     cd scm-prd-workflow && python3 scripts/check-skill-consistency.py
@@ -277,6 +278,162 @@ def check_term_consistency(files):
     return issues
 
 
+def check_gate_id_integration(files):
+    """检查7: 交互ID速查表与实际文件的一致性。
+
+    从 core-conventions.md 的"交互ID速查表"提取权威ID列表，
+    与所有 reference 文件 + SKILL.md 中实际出现的 gate ID 交叉验证。
+    """
+    issues = []
+    conventions_file = 'references/core-conventions.md'
+    if conventions_file not in files:
+        issues.append({
+            'severity': '警告',
+            'type': 'Gate ID',
+            'message': f'{conventions_file} 不存在，跳过交互ID速查表一致性检查',
+            'suggestion': f'创建 {conventions_file} 并包含"## 交互ID速查表"',
+        })
+        return issues
+
+    # --- 步骤1: 从速查表提取权威 gate ID 列表 ---
+    conv_content = files[conventions_file]
+
+    # 定位 "## 交互ID速查表" 区块
+    table_start = conv_content.find('## 交互ID速查表')
+    if table_start < 0:
+        issues.append({
+            'severity': '警告',
+            'type': 'Gate ID',
+            'message': f'{conventions_file} 中未找到"## 交互ID速查表"章节',
+            'suggestion': '在 core-conventions.md 中添加交互ID速查表',
+        })
+        return issues
+
+    # 截取到下一个 ## 或文件结尾
+    next_section = conv_content.find('\n## ', table_start + 1)
+    table_block = conv_content[table_start:next_section] if next_section > 0 else conv_content[table_start:]
+
+    # 解析表格行，提取 ID 列（第一列）
+    # 跳过删除线条目 ~~ID~~
+    gate_id_range_pattern = re.compile(r'([A-Z]{2,4})-(\d{1,2})~(\d{1,2})')
+    gate_id_single_pattern = re.compile(r'([A-Z]{2,4})-(\d{1,2})')
+    gate_id_alpha_pattern = re.compile(r'([A-Z]{2,4})-([A-Z]{2,4})')  # e.g. CK-PT
+
+    authoritative_ids = set()
+    table_lines = table_block.split('\n')
+    for line in table_lines:
+        # 表格行以 | 分隔
+        if not line.strip().startswith('|'):
+            continue
+        # 跳过表头分隔行
+        if re.match(r'\|\s*-', line):
+            continue
+        # 跳过表头
+        cols = [c.strip() for c in line.split('|')]
+        cols = [c for c in cols if c]  # 去空
+        if not cols:
+            continue
+        id_cell = cols[0]
+        # 跳过删除线条目
+        if '~~' in id_cell:
+            continue
+        # 跳过表头行
+        if id_cell == 'ID':
+            continue
+
+        # 展开范围: SC-01~06 → SC-01, SC-02, ..., SC-06
+        range_match = gate_id_range_pattern.search(id_cell)
+        if range_match:
+            prefix = range_match.group(1)
+            start = int(range_match.group(2))
+            end = int(range_match.group(3))
+            width = len(range_match.group(2))  # 保留前导零宽度
+            for n in range(start, end + 1):
+                authoritative_ids.add(f'{prefix}-{str(n).zfill(width)}')
+            continue
+
+        # 字母组合ID: CK-PT
+        alpha_match = gate_id_alpha_pattern.search(id_cell)
+        if alpha_match:
+            authoritative_ids.add(alpha_match.group(0))
+            continue
+
+        # 单个ID: ENV-01, MC-01
+        single_match = gate_id_single_pattern.search(id_cell)
+        if single_match:
+            authoritative_ids.add(single_match.group(0))
+            continue
+
+    if not authoritative_ids:
+        issues.append({
+            'severity': '警告',
+            'type': 'Gate ID',
+            'message': '未能从交互ID速查表中提取到任何 gate ID',
+            'suggestion': '检查速查表格式是否为标准 Markdown 表格',
+        })
+        return issues
+
+    # --- 步骤2: 扫描所有文件中出现的 gate ID ---
+    # 宽泛模式：2~4个大写字母 + 短横 + 数字或大写字母
+    broad_gate_pattern = re.compile(r'\b([A-Z]{2,4}-(?:\d{1,2}|[A-Z]{2,4}))\b')
+
+    # 收集每个 gate ID 在哪些文件出现（排除 core-conventions.md 本身）
+    id_in_files = defaultdict(set)  # gate_id → {file1, file2, ...}
+
+    for filepath, content in files.items():
+        if filepath == conventions_file:
+            continue  # 速查表本身不算"引用"
+        for line in content.split('\n'):
+            # 跳过删除线内容
+            if '~~' in line:
+                line = re.sub(r'~~[^~]*~~', '', line)
+            for match in broad_gate_pattern.finditer(line):
+                gate_id = match.group(1)
+                # 验证格式：要么 LETTERS-DIGITS，要么 LETTERS-LETTERS
+                if not (re.match(r'^[A-Z]{2,4}-\d{1,2}$', gate_id) or
+                        re.match(r'^[A-Z]{2,4}-[A-Z]{2,4}$', gate_id)):
+                    continue
+                id_in_files[gate_id].add(filepath)
+
+    # --- 步骤3: 报告缺失与未注册 ---
+
+    # 3a: 权威列表中的ID，在 reference 文件中无引用
+    for gate_id in sorted(authoritative_ids):
+        if gate_id not in id_in_files:
+            issues.append({
+                'severity': '警告',
+                'type': 'Gate ID 缺引用',
+                'message': f'交互ID `{gate_id}` 在速查表中已注册，但未在任何 reference 文件或 SKILL.md 中引用',
+                'suggestion': f'在对应的 reference 文件中补充 {gate_id} 的使用或定义',
+            })
+
+    # 3b: reference 文件中出现但不在权威列表中的 gate ID
+    all_found_ids = set(id_in_files.keys())
+
+    # 过滤：排除已知的非 gate ID 模式（占位符、业务术语等）
+    noise_patterns = re.compile(
+        r'^(?:'
+        r'ID-\d{1,2}'      # 表头噪音 (ID-01)
+        r'|AS-IS|TO-BE'    # 业务术语 (as-is / to-be 状态)
+        r'|YYYY-\w+'       # 日期占位符 (YYYY-MM, YYYY-DD)
+        r'|IF-[A-Z]{2,}'   # 接口ID占位符 (IF-XXX, IF-OMS)
+        r'|PRD-[A-Z]{2,}'  # 文档ID占位符 (PRD-XX)
+        r')$'
+    )
+    for gate_id in sorted(all_found_ids - authoritative_ids):
+        if noise_patterns.match(gate_id):
+            continue
+        ref_files = ', '.join(sorted(id_in_files[gate_id]))
+        issues.append({
+            'severity': '信息',
+            'type': 'Gate ID 未注册',
+            'message': f'交互ID `{gate_id}` 出现在 {ref_files}，但未在速查表中注册',
+            'suggestion': f'如 {gate_id} 是有效 gate ID，请在 {conventions_file} 速查表中补充注册',
+        })
+
+    return issues
+
+
 def check_mode_coverage(files):
     """检查6: 模式覆盖完整性。"""
     issues = []
@@ -318,6 +475,7 @@ def main():
     all_issues.extend(check_section_references(files))
     all_issues.extend(check_term_consistency(files))
     all_issues.extend(check_mode_coverage(files))
+    all_issues.extend(check_gate_id_integration(files))
 
     if not all_issues:
         print("✓ Skill 自检通过，未发现问题")
