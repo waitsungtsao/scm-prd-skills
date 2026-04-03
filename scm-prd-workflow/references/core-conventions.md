@@ -29,6 +29,7 @@
 | DG-01 | draw.io 生成降级 | diagram-patterns.md | python 不可用时首次遇到 YAML 图表 |
 | MT-01 | 需求类型推断通知 | SKILL.md | Phase 1 / Stage A / Stage L1（AI 自动推断后告知） |
 | CK-RV | 修订增量自检 | revision-mode.md | Stage RV-D |
+| CK-10 | 叙事连贯性评审 | phase4-review.md | CK-0~9 之后（5项整体评审） |
 
 ---
 

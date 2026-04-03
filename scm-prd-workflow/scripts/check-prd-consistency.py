@@ -6,6 +6,7 @@ check-prd-consistency.py — PRD 一致性扫描工具
 1. 交叉引用 ID 完整性（分层检查：G/F 必查，C/IF 按需）
 2. 模糊用语和冗余表述
 3. 变更点覆盖（每个变更项是否有对应功能和验收标准）
+4. 叙事信号（目标-功能连接、背景量化、验收覆盖率、异常密度）
 
 三层 ID 体系：
 - 第一层（始终检查）：G-XX 目标、F-XXX 功能
@@ -344,6 +345,122 @@ def check_er_consistency(content, mode):
     return issues
 
 
+def check_narrative_signals(content, lines, mode, requirement_type):
+    """检查叙事信号：已有内容的内在比例和连接，不检查章节存在性。"""
+    issues = []
+
+    # --- 信号1: 目标-功能悬空 ---
+    # G-XX 被定义但未在任何 F-XXX 段落中被引用
+    g_ids = extract_ids(content, 'G')
+    f_sections = []
+    current_section = ''
+    for line in lines:
+        if re.match(r'^#{2,4}\s+.*F-\d{3}', line):
+            if current_section:
+                f_sections.append(current_section)
+            current_section = line
+        elif current_section:
+            current_section += '\n' + line
+    if current_section:
+        f_sections.append(current_section)
+    f_text = '\n'.join(f_sections)
+
+    for g_num in sorted(g_ids):
+        g_full = f'G-{g_num}'
+        if g_full not in f_text:
+            issues.append({
+                'severity': '警告',
+                'type': '叙事信号',
+                'message': f'{g_full} 定义了目标但 PRD 功能章节中无实现路径',
+                'suggestion': f'确认 {g_full} 是否有对应的 F-XXX 功能实现',
+            })
+
+    # --- 信号2: 背景空心 ---
+    # §2 存在但不含任何数字（决策者可能无法判断紧迫性）
+    ch2_text = ''
+    in_ch2 = False
+    for line in lines:
+        if re.match(r'^##\s+第?2[章.\s]', line):
+            in_ch2 = True
+            continue
+        elif re.match(r'^##\s+第?\d+[章.\s]', line) and in_ch2:
+            break
+        elif in_ch2:
+            ch2_text += line + '\n'
+
+    if ch2_text and not re.search(r'\d+[%％万亿元秒天条单笔次/]', ch2_text):
+        issues.append({
+            'severity': '信息',
+            'type': '叙事信号',
+            'message': '§2 需求概述缺少量化数据——决策者可能无法判断紧迫性',
+            'suggestion': '考虑在背景描述中补充关键指标（数量、频率、金额、影响范围等）',
+        })
+
+    # --- 信号3: 验收覆盖率 ---
+    f_ids = extract_ids(content, 'F')
+    if f_ids and mode == 'full':
+        # 定位 §9（验收标准章节）
+        ch9_text = ''
+        in_ch9 = False
+        for line in lines:
+            if re.match(r'^##\s+第?9[章.\s]', line):
+                in_ch9 = True
+                continue
+            elif re.match(r'^##\s+第?\d+[章.\s]', line) and in_ch9:
+                break
+            elif in_ch9:
+                ch9_text += line + '\n'
+
+        if ch9_text:
+            f_in_ch9 = set(ID_PATTERNS['F'].findall(ch9_text))
+            coverage = len(f_in_ch9) / len(f_ids) * 100 if f_ids else 100
+            if coverage < 70:
+                issues.append({
+                    'severity': '警告',
+                    'type': '叙事信号',
+                    'message': f'仅 {coverage:.0f}% 的功能点在验收标准中被引用'
+                               f'（{len(f_in_ch9)}/{len(f_ids)}）',
+                    'suggestion': '检查未覆盖的功能点是否需要验收标准',
+                })
+
+    # --- 信号4: 异常密度 ---
+    exception_keywords = re.findall(r'异常|失败|超时|错误|回滚|降级|兜底', content)
+    if f_ids and len(exception_keywords) < len(f_ids):
+        issues.append({
+            'severity': '信息',
+            'type': '叙事信号',
+            'message': f'异常处理描述密度偏低（{len(f_ids)}个功能点，'
+                       f'仅{len(exception_keywords)}处异常相关描述）',
+            'suggestion': '核查每个功能点是否都考虑了异常路径',
+        })
+
+    # --- 信号5: 变更点-验收对应（update/mixed）---
+    if requirement_type in ('update', 'mixed'):
+        c_ids = extract_ids(content, 'C')
+        ch9_text_for_c = ''
+        in_ch9_c = False
+        for line in lines:
+            if re.match(r'^##\s+第?(?:9|6)[章.\s]', line):  # lite 模式验收在 Ch.6
+                in_ch9_c = True
+                continue
+            elif re.match(r'^##\s+第?\d+[章.\s]', line) and in_ch9_c:
+                break
+            elif in_ch9_c:
+                ch9_text_for_c += line + '\n'
+
+        for c_num in sorted(c_ids):
+            c_full = f'C-{c_num}'
+            if c_full not in ch9_text_for_c:
+                issues.append({
+                    'severity': '警告',
+                    'type': '叙事信号',
+                    'message': f'变更点 {c_full} 未出现在验收标准中',
+                    'suggestion': f'确认 {c_full} 的变更是否有对应的验收场景',
+                })
+
+    return issues
+
+
 def main():
     if len(sys.argv) < 2:
         print("用法: python check-prd-consistency.py <PRD文件路径>", file=sys.stderr)
@@ -390,6 +507,7 @@ def main():
     if requirement_type in ('update', 'mixed'):
         all_issues.extend(check_change_coverage(content, lines))
     all_issues.extend(check_er_consistency(content, mode))
+    all_issues.extend(check_narrative_signals(content, lines, mode, requirement_type))
 
     # 输出结果
     if not all_issues:

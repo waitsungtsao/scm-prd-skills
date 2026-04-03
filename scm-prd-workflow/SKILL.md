@@ -97,7 +97,7 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 | Phase 1 | 需求录入 | `intake.md` | 多轮提问，挖掘需求全貌 |
 | Phase 2 | 需求澄清 | `clarification.md` | 逐项确认，消除歧义 |
 | Phase 3 | 方案输出 | `PRD-{名称}.md` + `.docx` | 叙事规划→确认→撰写PRD + 流程图 |
-| Phase 4 | 自检审查 | `review-report.md`、`delivery-brief.md`（可选） | 自动质量检查（CK-0~CK-9）+ 用户审阅 |
+| Phase 4 | 自检审查 | `review-report.md`、`delivery-brief.md`（可选） | 自动质量检查（CK-0~CK-10）+ 用户审阅 |
 
 **自主模式**使用 Stage A-C（详见"自主生成模式"章节）：
 
@@ -462,7 +462,7 @@ Word 生成引擎选择（JS 优先，Python 降级）：
 
 **产出**：`review-report.md` + `prd-changelog.md`（有修改时）
 
-读取 `references/phase4-review.md` 获取完整检查清单和交互规范。执行 CK-0~CK-9 全部检查，产出 `review-report.md`。呈现报告后由用户选择审阅方式，修改后重检直到无关键问题。每轮修改持久化到 `prd-changelog.md`。
+读取 `references/phase4-review.md` 获取完整检查清单和交互规范。执行 CK-0~CK-10 全部检查，产出 `review-report.md`。呈现报告后由用户选择审阅方式，修改后重检直到无关键问题。每轮修改持久化到 `prd-changelog.md`。
 
 ## 原型集成
 

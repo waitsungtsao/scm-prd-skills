@@ -147,3 +147,93 @@ class TestLiteMode:
                           if 'C-' in i['message'] or 'IF-' in i['message']]
         assert c_or_if_issues == [], \
             f"Lite mode should not flag C/IF issues, got: {c_or_if_issues}"
+
+
+# ---------------------------------------------------------------------------
+# Narrative signal checks
+# ---------------------------------------------------------------------------
+
+class TestNarrativeSignals:
+    """Tests for narrative signal detection."""
+
+    def test_goal_without_function_link(self):
+        """G-XX defined but never referenced in F-XXX sections."""
+        content = """---
+requirement_type: new
+---
+## 第2章 需求概述
+
+### G-01 提升退货效率
+### G-02 降低错发率
+
+## 第5章 业务流程
+
+参见 F-001 和 G-01。
+
+## 第6章 功能与规则
+
+### F-001 退货申请
+关联目标：G-01
+"""
+        lines = content.split('\n')
+        issues = check_prd.check_narrative_signals(content, lines, 'full', 'new')
+        # G-02 is defined but never appears in any F-XXX section
+        g02_issues = [i for i in issues if 'G-02' in i['message'] and '叙事信号' in i['type']]
+        assert len(g02_issues) >= 1, f"Expected G-02 flagged, got: {issues}"
+
+    def test_background_without_numbers(self):
+        """§2 exists but has no quantitative data."""
+        content = """---
+requirement_type: new
+---
+## 第2章 需求概述
+
+当前退货流程不够高效，用户体验较差，需要优化。
+
+## 第3章 术语
+"""
+        lines = content.split('\n')
+        issues = check_prd.check_narrative_signals(content, lines, 'full', 'new')
+        bg_issues = [i for i in issues if '量化数据' in i['message']]
+        assert len(bg_issues) >= 1
+
+    def test_background_with_numbers_no_warning(self):
+        """§2 with quantitative data should not trigger."""
+        content = """---
+requirement_type: new
+---
+## 第2章 需求概述
+
+当前日均退货量约500单，处理时效平均3天，退货率约8%。
+
+## 第3章 术语
+"""
+        lines = content.split('\n')
+        issues = check_prd.check_narrative_signals(content, lines, 'full', 'new')
+        bg_issues = [i for i in issues if '量化数据' in i['message']]
+        assert len(bg_issues) == 0
+
+    def test_low_acceptance_coverage(self):
+        """Less than 70% of F-XXX referenced in §9."""
+        content = """---
+requirement_type: new
+---
+## 第2章 需求概述
+
+G-01 目标
+
+## 第6章 功能与规则
+
+### F-001 功能A
+### F-002 功能B
+### F-003 功能C
+### F-004 功能D
+
+## 第9章 验收标准
+
+| 场景 | F-001 |
+"""
+        lines = content.split('\n')
+        issues = check_prd.check_narrative_signals(content, lines, 'full', 'new')
+        coverage_issues = [i for i in issues if '验收标准' in i['message'] and '功能点' in i['message']]
+        assert len(coverage_issues) >= 1
