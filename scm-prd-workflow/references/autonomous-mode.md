@@ -198,6 +198,21 @@
 
 **与 Lite 模式 SL-02 的区别**：SL-02 在生成过程中触发且可能强制升级；此检测在 Stage A 末尾触发，仅为建议性质，用户可选择忽略。
 
+### 已知背景推断
+
+在 intake.md 产出后、进入 Stage B 前，基于 knowledge-base、system-conventions、用户描述，推断一组"团队已知背景"，写入 intake.md 的 `known_context` 字段，标记 `[推断]`：
+
+```yaml
+known_context:   # [推断] AI 判断为团队共识，PRD 中引用但不展开
+  - "现有 OMS 审批流程（domain-oms.md §3 流程部分）"
+  - "字段命名规范（system-conventions.md §2.3）"
+  - "当前退货流程 AS-IS 状态（用户在录入中已充分描述）"
+```
+
+**判断标准**：所有目标读者（撰写者 + 开发 + QA + BA + 决策者）都已知的才列入。作者知道但开发可能不知道的，不列入（PRD 仍需描述）。
+
+Stage C 审阅时，用户可在假设总览表中修改 `known_context`（如"这个其实开发不太了解，需要展开"）。
+
 ### 知识库补充策略
 
 1. 读取 `knowledge-base/_index.md` 确定覆盖范围
