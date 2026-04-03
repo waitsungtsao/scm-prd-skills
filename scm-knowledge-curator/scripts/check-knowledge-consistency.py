@@ -22,6 +22,11 @@ import re
 import glob
 from collections import defaultdict
 
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
 VALID_DOMAINS = {'OMS', 'WMS', 'TMS', 'BMS', 'common'}
 VALID_SOURCES = {'interview', 'document', 'inference', 'observation'}
 
@@ -40,8 +45,8 @@ def find_kb_dir(arg=None):
     return None
 
 
-def parse_yaml_simple(text):
-    """简易 YAML 值提取（不依赖 PyYAML）。"""
+def _parse_yaml_simple(text):
+    """简易 YAML 值提取（PyYAML 不可用时的降级方案）。"""
     result = {}
     for line in text.split('\n'):
         line = line.strip()
@@ -51,26 +56,63 @@ def parse_yaml_simple(text):
     return result
 
 
+def parse_yaml_text(text):
+    """解析 YAML 文本，优先使用 PyYAML，降级为正则。"""
+    if yaml:
+        try:
+            result = yaml.safe_load(text)
+            return result if isinstance(result, dict) else {}
+        except yaml.YAMLError:
+            pass
+    return _parse_yaml_simple(text)
+
+
 def parse_front_matter(content):
     """提取 Markdown 文件的 YAML front matter。"""
     match = re.match(r'\A---[ \t]*\n(.*?\n)---[ \t]*\n', content, re.DOTALL)
     if match:
-        return parse_yaml_simple(match.group(1))
+        return parse_yaml_text(match.group(1))
     return {}
 
 
-def check_glossary(kb_dir):
-    """KC-1 & KC-2 & KC-5: 检查术语表。"""
-    issues = []
-    glossary_path = os.path.join(kb_dir, 'glossary.yaml')
-    if not os.path.exists(glossary_path):
-        issues.append(('info', 'KC-1', 'glossary.yaml 不存在，跳过术语检查'))
-        return issues
+def _parse_glossary_yaml(content):
+    """使用 PyYAML 解析 glossary.yaml，返回 {term: {related, domains, source}} 字典。"""
+    data = yaml.safe_load(content)
+    if not isinstance(data, dict):
+        return {}
+    entries = data.get('terms', [])
+    if not isinstance(entries, list):
+        return {}
+    terms = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or 'term' not in entry:
+            continue
+        name = str(entry['term'])
+        related = entry.get('related', [])
+        if isinstance(related, str):
+            related = [related]
+        elif not isinstance(related, list):
+            related = []
+        related = [str(r) for r in related]
+        domains = entry.get('domain', [])
+        if isinstance(domains, str):
+            domains = [domains]
+        elif not isinstance(domains, list):
+            domains = []
+        domains = [str(d) for d in domains]
+        source = entry.get('source')
+        if isinstance(source, dict):
+            source = source.get('type')
+        terms[name] = {
+            'related': related,
+            'domains': domains,
+            'source': str(source) if source else None,
+        }
+    return terms
 
-    with open(glossary_path, 'r', encoding='utf-8') as f:
-        content = f.read()
 
-    # 简易解析术语条目
+def _parse_glossary_regex(content):
+    """正则降级方案：逐行解析 glossary.yaml。"""
     terms = {}
     current_term = None
     current_related = []
@@ -91,7 +133,6 @@ def check_glossary(kb_dir):
             current_domains = []
             current_source = None
         elif stripped.startswith('related:'):
-            # Parse inline list [a, b, c]
             val = stripped.split(':', 1)[1].strip()
             if val.startswith('['):
                 items = val.strip('[]').split(',')
@@ -110,6 +151,31 @@ def check_glossary(kb_dir):
             'domains': current_domains,
             'source': current_source,
         }
+    return terms
+
+
+def _parse_glossary(content):
+    """解析 glossary.yaml，优先 PyYAML，降级正则。"""
+    if yaml:
+        try:
+            return _parse_glossary_yaml(content)
+        except yaml.YAMLError:
+            pass
+    return _parse_glossary_regex(content)
+
+
+def check_glossary(kb_dir):
+    """KC-1 & KC-2 & KC-5: 检查术语表。"""
+    issues = []
+    glossary_path = os.path.join(kb_dir, 'glossary.yaml')
+    if not os.path.exists(glossary_path):
+        issues.append(('info', 'KC-1', 'glossary.yaml 不存在，跳过术语检查'))
+        return issues
+
+    with open(glossary_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    terms = _parse_glossary(content)
 
     term_names = set(terms.keys())
 

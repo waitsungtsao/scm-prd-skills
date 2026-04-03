@@ -36,6 +36,35 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 YAML2SVG = SCRIPT_DIR / "yaml2svg.py"
 YAML2DRAWIO = SCRIPT_DIR / "yaml2drawio.py"
 
+
+def _load_config_flag(key: str, default: bool = True) -> bool:
+    """从 .scm-prd-config.yaml 读取布尔配置项。"""
+    import json
+    # 先查 JSON 缓存
+    for candidate in [Path.cwd(), Path.cwd().parent]:
+        json_cfg = candidate / ".scm-prd-env-cache.json"
+        if json_cfg.exists():
+            try:
+                data = json.loads(json_cfg.read_text(encoding="utf-8"))
+                if key in data:
+                    return bool(data[key])
+            except Exception:
+                pass
+    # 再查 YAML 配置
+    for candidate in [Path.cwd(), Path.cwd().parent]:
+        yaml_cfg = candidate / ".scm-prd-config.yaml"
+        if yaml_cfg.exists():
+            try:
+                text = yaml_cfg.read_text(encoding="utf-8")
+                for line in text.split("\n"):
+                    stripped = line.strip()
+                    if stripped.startswith(f"{key}:"):
+                        val = stripped.split(":", 1)[1].strip().lower()
+                        return val in ("true", "yes", "1")
+            except Exception:
+                pass
+    return default
+
 # =============================================================================
 # 辅助函数
 # =============================================================================
@@ -204,9 +233,15 @@ def export_mermaid(mermaid_path: Path, force: bool) -> str:
         return "success"
 
     # 2. mermaid.ink 远程兜底（隐私提示：图表内容将发送到第三方服务器）
+    if not _load_config_flag("allow_remote_render", default=True):
+        print(f"  跳过远程渲染: allow_remote_render=false — {mermaid_path.name}", file=sys.stderr)
+        print("    如需远程渲染，在 .scm-prd-config.yaml 中设置 allow_remote_render: true", file=sys.stderr)
+        print(f"  失败: {mermaid_path.name} — mmdc 不可用且远程渲染已禁用", file=sys.stderr)
+        return "failed"
     if not hasattr(export_mermaid, "_ink_warned"):
         print("  ⚠ 隐私提示: mmdc 不可用，将使用 mermaid.ink 远程渲染（图表内容会发送到第三方服务器）", file=sys.stderr)
         print("    建议安装本地渲染: npm install -g @mermaid-js/mermaid-cli", file=sys.stderr)
+        print("    或在 .scm-prd-config.yaml 中设置 allow_remote_render: false 永久禁用", file=sys.stderr)
         export_mermaid._ink_warned = True
     if _export_mermaid_ink(mermaid_path, png_path, content):
         return "success"

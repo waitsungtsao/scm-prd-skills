@@ -147,6 +147,7 @@ last_updated: 2026-04-03T14:30:00
 ### 启动时的初始化
 
 1. 检查当前目录是否存在 `knowledge-base/` 文件夹
+   - **如不存在 → 自动创建最小启动知识库**：创建 `knowledge-base/` 目录，生成空的 `_index.md`（使用 `scm-knowledge-curator/templates/knowledge-index.md` 结构，填入当前日期）和空的 `glossary.yaml`（仅含 `terms: []`）。告知用户："已创建知识库骨架。可通过 scm-knowledge-curator 技能填充业务知识，也可继续 PRD 流程。"
    - 如存在，读取 `_index.md`，了解已有知识覆盖范围
    - 如有与本次需求相关的知识卡片，主动读取作为背景
    - 检查 `glossary.yaml` 是否存在：如存在则读取用于术语一致性校验；如不存在或格式异常则跳过术语校验（优雅降级，不阻断流程），并在首次需要引用术语时提示用户可通过 scm-knowledge-curator 技能生成术语表
