@@ -71,29 +71,47 @@ if [ -n "$TEST_FILES" ] && command -v python3 >/dev/null 2>&1; then
     fi
 fi
 
-# 新增文件提醒（新增脚本/文档时提示关联操作）
-NEW_FILES=$(git diff --cached --name-only --diff-filter=A -- \
-    'scm-*/scripts/*.py' 'scm-*/references/*.md' 'scm-*/templates/*.md')
-if [ -n "$NEW_FILES" ]; then
+# 新增脚本必须有测试（硬性阻止）
+NEW_SCRIPTS=$(git diff --cached --name-only --diff-filter=A -- 'scm-*/scripts/*.py')
+if [ -n "$NEW_SCRIPTS" ]; then
     echo "" >> "$REPORT"
-    echo "## 新增文件提醒" >> "$REPORT"
+    echo "## 新增文件检查" >> "$REPORT"
+    while IFS= read -r script; do
+        [ -z "$script" ] && continue
+        module=$(basename "$script" .py | tr '-' '_')
+        # 排除 __init__.py 和 check-skill-consistency 自身
+        if [ "$module" = "__init__" ] || [ "$module" = "check_skill_consistency" ]; then
+            continue
+        fi
+        # 检查暂存区或已有文件中是否有对应测试
+        has_test=0
+        git diff --cached --name-only | grep -q "test_${module}" && has_test=1
+        ls tests/test_${module}*.py >/dev/null 2>&1 && has_test=1
+        if [ "$has_test" -eq 0 ]; then
+            echo "  - 阻止: $script 无对应测试 tests/test_${module}.py" >> "$REPORT"
+            echo "  阻止: 新增脚本 $script 无对应测试 tests/test_${module}.py"
+            HAS_PROBLEM=1
+        fi
+    done <<< "$NEW_SCRIPTS"
+fi
+
+# 新增文档提醒（非阻止，仅提示）
+NEW_DOCS=$(git diff --cached --name-only --diff-filter=A -- \
+    'scm-*/references/*.md' 'scm-*/templates/*.md')
+if [ -n "$NEW_DOCS" ]; then
     while IFS= read -r f; do
+        [ -z "$f" ] && continue
         case "$f" in
-            *.py)
-                base=$(basename "$f" .py | tr '-' '_')
-                echo "  - $f → 需要添加 tests/test_${base}.py" >> "$REPORT"
-                echo "  新增脚本: $f → 需要测试 tests/test_${base}.py"
-                ;;
             */references/*.md)
-                echo "  - $f → 检查 SKILL.md 加载表是否已注册" >> "$REPORT"
-                echo "  新增 reference: $f → 检查加载表"
+                echo "  新增 reference: $f → 检查 SKILL.md 加载表"
+                echo "  - $f → 检查加载表" >> "$REPORT"
                 ;;
             */templates/*.md)
-                echo "  - $f → 检查占位符是否在指引中有引用" >> "$REPORT"
                 echo "  新增 template: $f → 检查占位符"
+                echo "  - $f → 检查占位符" >> "$REPORT"
                 ;;
         esac
-    done <<< "$NEW_FILES"
+    done <<< "$NEW_DOCS"
 fi
 
 # 结论
