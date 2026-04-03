@@ -71,6 +71,31 @@ if [ -n "$TEST_FILES" ] && command -v python3 >/dev/null 2>&1; then
     fi
 fi
 
+# 新增文件提醒（新增脚本/文档时提示关联操作）
+NEW_FILES=$(git diff --cached --name-only --diff-filter=A -- \
+    'scm-*/scripts/*.py' 'scm-*/references/*.md' 'scm-*/templates/*.md')
+if [ -n "$NEW_FILES" ]; then
+    echo "" >> "$REPORT"
+    echo "## 新增文件提醒" >> "$REPORT"
+    while IFS= read -r f; do
+        case "$f" in
+            *.py)
+                base=$(basename "$f" .py | tr '-' '_')
+                echo "  - $f → 需要添加 tests/test_${base}.py" >> "$REPORT"
+                echo "  新增脚本: $f → 需要测试 tests/test_${base}.py"
+                ;;
+            */references/*.md)
+                echo "  - $f → 检查 SKILL.md 加载表是否已注册" >> "$REPORT"
+                echo "  新增 reference: $f → 检查加载表"
+                ;;
+            */templates/*.md)
+                echo "  - $f → 检查占位符是否在指引中有引用" >> "$REPORT"
+                echo "  新增 template: $f → 检查占位符"
+                ;;
+        esac
+    done <<< "$NEW_FILES"
+fi
+
 # 结论
 if [ "$HAS_PROBLEM" -eq 1 ]; then
     echo "" >> "$REPORT"

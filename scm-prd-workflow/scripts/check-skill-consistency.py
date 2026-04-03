@@ -15,6 +15,7 @@ check-skill-consistency.py — Skill 定义文件自检工具
 10. 发版就绪检测（git log 语义信号 + 文档新鲜度）
 11. 数值断言同步（SKILL.md 中的章节数/维度数/CK范围 vs reference 实际）
 12. 模板占位符完整性（templates/ 中的 {占位符} 是否在指引中有引用）
+13. 脚本测试覆盖（scripts/*.py 是否在 tests/ 中有对应测试）
 
 用法:
     python3 scripts/check-skill-consistency.py [skill目录]    # 完整报告
@@ -792,6 +793,61 @@ def check_loading_table(files, skill_dir):
     return issues
 
 
+def check_test_coverage(skill_dir):
+    """检查13: 脚本测试覆盖。
+
+    每个 scripts/*.py 应在 tests/ 中有对应测试。
+    不要求 1:1 文件名映射，只要脚本的模块名被 import 就算覆盖。
+    """
+    issues = []
+    project_root = os.path.join(skill_dir, '..')
+    tests_dir = os.path.join(project_root, 'tests')
+
+    if not os.path.isdir(tests_dir):
+        return issues
+
+    # 收集所有测试文件中 import 的模块名
+    tested_modules = set()
+    for test_file in glob.glob(os.path.join(tests_dir, 'test_*.py')):
+        try:
+            with open(test_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            # 匹配 import xxx / from xxx import / importlib.import_module('xxx')
+            for m in re.finditer(r"(?:import|from)\s+([\w.-]+)", content):
+                tested_modules.add(m.group(1).replace('-', '_').replace('.', '_'))
+            for m in re.finditer(r"import_module\(['\"]([^'\"]+)", content):
+                tested_modules.add(m.group(1).replace('-', '_').replace('.', '_'))
+        except Exception:
+            pass
+
+    # 检查每个脚本是否被测试覆盖
+    scripts_dirs = [
+        os.path.join(skill_dir, 'scripts'),
+        os.path.join(project_root, 'scm-knowledge-curator', 'scripts'),
+    ]
+    # 排除：自身（check-skill-consistency）和纯配置文件
+    skip_scripts = {'check_skill_consistency', '__init__'}
+
+    for scripts_dir in scripts_dirs:
+        if not os.path.isdir(scripts_dir):
+            continue
+        for py_file in sorted(glob.glob(os.path.join(scripts_dir, '*.py'))):
+            basename = os.path.basename(py_file)
+            module_name = basename.replace('.py', '').replace('-', '_')
+            if module_name in skip_scripts:
+                continue
+            if module_name not in tested_modules:
+                rel_path = os.path.relpath(py_file, project_root)
+                issues.append({
+                    'severity': '信息',
+                    'type': '测试覆盖',
+                    'message': f'{rel_path} 无测试覆盖',
+                    'suggestion': f'在 tests/ 中添加 test_{module_name}.py',
+                })
+
+    return issues
+
+
 def check_release_readiness(skill_dir):
     """检查10: 发版就绪检测。
 
@@ -946,6 +1002,7 @@ def main():
     all_issues.extend(check_template_placeholders(files))
     all_issues.extend(check_script_smoke(skill_dir))
     all_issues.extend(check_loading_table(files, skill_dir))
+    all_issues.extend(check_test_coverage(skill_dir))
     all_issues.extend(check_release_readiness(skill_dir))
 
     critical = [i for i in all_issues if i['severity'] == '关键']
