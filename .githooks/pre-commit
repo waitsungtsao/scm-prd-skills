@@ -1,0 +1,52 @@
+#!/bin/bash
+# pre-commit hook: 当 skill 文件变更时自动运行一致性检查
+# 激活方式: git config core.hooksPath .githooks
+
+# 检测暂存区是否有 skill 相关文件变更
+SKILL_FILES=$(git diff --cached --name-only -- \
+    'scm-prd-workflow/SKILL.md' \
+    'scm-prd-workflow/references/*.md' \
+    'scm-prd-workflow/templates/*.md' \
+    'scm-prd-workflow/scripts/*.py' \
+    'scm-prd-workflow/scripts/*.mjs' \
+    'scm-knowledge-curator/SKILL.md' \
+    'scm-knowledge-curator/references/*.md' \
+    'scm-knowledge-curator/templates/*.md' \
+    'scm-knowledge-curator/scripts/*.py' \
+)
+
+if [ -z "$SKILL_FILES" ]; then
+    exit 0  # 没有 skill 文件变更，跳过
+fi
+
+echo "skill-check: 检测到 skill 文件变更，运行一致性检查..."
+
+# 运行 prd-workflow 自检
+if [ -f "scm-prd-workflow/scripts/check-skill-consistency.py" ]; then
+    RESULT=$(python3 scm-prd-workflow/scripts/check-skill-consistency.py scm-prd-workflow --short 2>&1)
+    echo "  $RESULT"
+
+    # 有 critical 时阻止提交
+    if echo "$RESULT" | grep -q "critical"; then
+        echo ""
+        echo "提交被阻止: 存在关键一致性问题。"
+        echo "运行完整报告: python3 scm-prd-workflow/scripts/check-skill-consistency.py scm-prd-workflow"
+        exit 1
+    fi
+fi
+
+# 运行测试（如果有测试文件变更）
+TEST_FILES=$(git diff --cached --name-only -- 'tests/*.py' 'scm-*/scripts/*.py')
+if [ -n "$TEST_FILES" ] && command -v python3 >/dev/null 2>&1; then
+    if python3 -c "import pytest" 2>/dev/null; then
+        echo "skill-check: 脚本变更，运行测试..."
+        PYTEST_RESULT=$(python3 -m pytest tests/ -q --tb=no 2>&1 | tail -1)
+        echo "  $PYTEST_RESULT"
+        if echo "$PYTEST_RESULT" | grep -q "failed"; then
+            echo ""
+            echo "提交被阻止: 测试未通过。"
+            echo "运行详细报告: python3 -m pytest tests/ -v"
+            exit 1
+        fi
+    fi
+fi

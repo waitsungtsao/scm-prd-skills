@@ -184,17 +184,17 @@ scm-prd-skills/
 ## 自检与质量保障
 
 ```bash
-# 运行测试
+# 激活 pre-commit hook（首次克隆后执行一次）
+git config core.hooksPath .githooks
+
+# 手动运行
 python -m pytest tests/ -v
-
-# Skill 一致性检查（一行摘要）
 python3 scm-prd-workflow/scripts/check-skill-consistency.py scm-prd-workflow --short
-
-# Skill 一致性检查（完整报告）
-python3 scm-prd-workflow/scripts/check-skill-consistency.py scm-prd-workflow
 ```
 
-`check-skill-consistency.py` 覆盖 10 类检查：文件引用 / 模板字段 / 交互 ID / 章节引用 / 术语一致 / 横切概念（自动发现） / Gate ID 集成 / 脚本冒烟 / 加载表对齐 / 文档新鲜度。
+激活 hook 后，提交 skill 文件时自动运行一致性检查（有 critical 阻止提交），提交脚本时自动跑测试。
+
+`check-skill-consistency.py` 覆盖 12 类检查：文件引用 / 模板字段 / 交互 ID / 章节引用 / 术语一致 / 横切概念（自动发现） / Gate ID 集成 / 脚本冒烟 / 加载表对齐 / 文档新鲜度 / 数值断言同步 / 模板占位符。
 
 ## 版本策略
 

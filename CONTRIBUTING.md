@@ -46,6 +46,20 @@ reference 文件按需加载——AI 在特定阶段才读取。
 2. 更新 `README.md`（否则 `check-skill-consistency.py --short` 会提醒文档过时）
 3. 全量检查：`python -m pytest tests/ -v && python3 scripts/check-skill-consistency.py .`
 
+## Pre-commit Hook
+
+项目配置了 git pre-commit hook，skill 文件变更时自动运行一致性检查：
+
+```bash
+# 激活（首次克隆后执行一次）
+git config core.hooksPath .githooks
+```
+
+激活后的行为：
+- 提交包含 SKILL.md / references / templates / scripts 变更 → 自动跑 `--short` 检查，有 critical 阻止提交
+- 提交包含 scripts/*.py 或 tests/*.py 变更 → 自动跑 pytest，有 failed 阻止提交
+- 提交不涉及 skill 文件 → 跳过，零开销
+
 ## 提交规范
 
 遵循 Conventional Commits：
