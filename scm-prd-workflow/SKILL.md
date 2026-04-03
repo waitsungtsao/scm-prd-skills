@@ -50,6 +50,7 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 |------|---------|---------|
 | `env-setup.md` | 初始化步骤 5-7（环境检测） | 所有模式 |
 | `progress-display.md` | 初始化完成后（进度提示规范） | 所有模式 |
+| `core-conventions.md` | 初始化完成后（交互ID、标记体系、补充约束） | 所有模式 |
 | `autonomous-mode.md` | 用户选择自主模式后 | 自主 |
 | `lite-mode.md` | 用户选择轻量模式后 | 轻量 |
 | `phase1-intake.md` | 进入 Phase 1 时 | 交互 |
@@ -137,14 +138,42 @@ pending:                   # 未完成的操作
 files_generated:           # 已生成的文件列表
   - intake.md
   - clarification.md
+decisions:                 # 关键决策记录（供后续需求复用）
+  cd01_focus_chapters: [2, 5, 6]
+  cd01_prototype: false
+  mc01_mode: autonomous
 last_updated: 2026-04-03T14:30:00
 ```
 
 **写入时机**：每次阶段转换（Phase/Stage 切换）、每次生成文件后、每次用户确认后。
-**读取时机**：启动初始化步骤 3。
+**写入���略**：采用**乐观写入 + 原���更新**模式��
+- **进入阶段前**写入状态（stage 更新为即将进入的阶段，step 标记为"进入中"���，确保崩溃时有恢复点
+- **阶段完成后**更新状态（step 更新为具体���成的操��）
+- 写入���式：先写入临时文件 `.session-state.yaml.tmp`，成功后 rename 覆盖 `.session-state.yaml`，确保写入原子性
+
+**读取时机**：启动初始化（快速恢复路径或完整初始化步骤 3）。
 **删除时机**：PRD 最终交付完成时删除（交付 = 流程结束）。
 
 ### 启动时的初始化
+
+初始化分为两条路径：**快速恢复**（回访用户）和**完整初始化**（首次/新需求）。
+
+#### 快速恢复路径
+
+**触发条件**：用户输入中明确指定了已有需求目录，且该目录下存在 `.session-state.yaml`。
+
+执行步骤：
+1. 读取 `.session-state.yaml`，获取精确的模式/阶段/步骤/pending 操作
+2. **静默后台检查**（不输出，仅当发现异常时提示）：
+   - 读取 `knowledge-base/_index.md`（如存在）检查自上次会话后是否有知识库更新 → 有更新时提示："知识库在 {日期} 有更新（{变更摘要}），已纳入本次 PRD 背景"
+   - 读取 `requirements/_constraints-index.yaml`（如存在）检查是否有新的跨需求约束 → 有新约束时提示
+   - 读取环境缓存 `.scm-prd-env-cache.json` → 缓存失效时静默重新检测
+3. 告知用户恢复位置："上次中断于 {模式} - {阶段} - {步骤}。{pending操作列表}"
+4. 使用 `AskUserQuestion`：继续（从中断位置恢复）| 重新开始（进入完整初始化）
+
+选择"继续"后直接跳转到中断位置，**跳过模式确认（MC-01）**。
+
+#### 完整初始化路径
 
 1. 检查当前目录是否存在 `knowledge-base/` 文件夹
    - **如不存在 → 自动创建最小启动知识库**：创建 `knowledge-base/` 目录，生成空的 `_index.md`（使用 `scm-knowledge-curator/templates/knowledge-index.md` 结构，填入当前日期）和空的 `glossary.yaml`（仅含 `terms: []`）。告知用户："已创建知识库骨架。可通过 scm-knowledge-curator 技能填充业务知识，也可继续 PRD 流程。"
@@ -153,7 +182,7 @@ last_updated: 2026-04-03T14:30:00
    - 检查 `glossary.yaml` 是否存在：如存在则读取用于术语一致性校验；如不存在或格式异常则跳过术语校验（优雅降级，不阻断流程），并在首次需要引用术语时提示用户可通过 scm-knowledge-curator 技能生成术语表
    - 检查 `system-conventions.md` 是否存在：如存在则读取，作为AI判断"哪些是标准行为无需描述"的参考依据（不在PRD中直接引用）；如不存在则记录 `conventions_available = false`，**不在启动时提示创建**——延后到 Phase 3/Stage B 叙事规划阶段，仅当 `requirement_type = update|mixed` 且发现需要引用系统公约时才提示
 2. 确认需求工作目录：`requirements/REQ-{日期}-{需求简称}/`
-3. **恢复检测**：检查需求目录下是否有未完成的工作，优先使用 `.session-state.yaml`（精确恢复），降级为文件存在性判断（粗略恢复）：
+3. **恢复检测**（非快速恢复时执行）：检查需求目录下是否有未完成的工作，优先使用 `.session-state.yaml`（精确恢复），降级为文件存在性判断（粗略恢复）：
    - 如 `.session-state.yaml` 存在 → 读取精确的阶段/步骤/pending 操作，告知用户上次中断位置，询问是否继续
    - 如 `.session-state.yaml` 不存在 → 按文件存在性推断：
      - 存在 `intake.md` 但没有 PRD → 中断于录入/澄清阶段
@@ -298,25 +327,7 @@ Skill被触发后、正式进入任何PRD阶段之前，插入**一次** `AskUse
 
 ### 交互ID速查表
 
-| ID | 名称 | 所在文件 | 触发时机 |
-|----|------|---------|---------|
-| ENV-01 | 环境状态播报 | SKILL.md / env-setup.md | 初始化检测完成后 |
-| MC-01 | 模式+类型确认（合并） | SKILL.md | ENV-01 后（一次交互同时确认模式和需求类型） |
-| CD-01 | 章节详略选择 | phase3-write.md / autonomous-mode.md / lite-mode.md | 叙事规划输出后、撰写前（全模式） |
-| SL-01 | 轻量审阅反馈 | lite-mode.md | Stage L3 |
-| SL-02 | 复杂度升级建议 | lite-mode.md | Stage L2/L3 复杂度超标时 |
-| SC-01~06 | 自主模式审阅交互 | autonomous-mode.md | Stage C |
-| P4-01~05 | 交互模式审阅交互 | phase4-review.md | Phase 4 |
-| CK-0~9 | 自检项（全模式） | phase4-review.md | Phase 4 / Stage B |
-| ~~MR-01~~ | ~~多角色审查模式选择~~ | ~~phase4-review.md~~ | 已改为自动决策，不再需要用户选择 |
-| CK-L1~5 | 自检项（轻量） | lite-mode.md | Stage L2 |
-| PT-01 | 原型策略（CD-01扩展） | phase3-write.md / autonomous-mode.md | 叙事规划输出后 |
-| PT-02 | 原型设计方案迭代 | prototype-planning.md | 原型设计阶段（多轮） |
-| PT-03 | 原型结果确认 | prototype-planning.md | 原型生成后 |
-| CK-PT | 原型一致性检查 | phase4-review.md | Phase 4 / Stage C（启用原型时） |
-| RV-01 | 修订类型选择 | revision-mode.md | Stage RV-A |
-| RV-02 | 修订章节详略选择 | revision-mode.md | Stage RV-B |
-| RV-03 | 修订交付确认 | revision-mode.md | Stage RV-D |
+完整的交互 ID 列表（ENV-01、MC-01、CD-01、SL-01/02、SC-01~06、P4-01~05、CK-0~9、CK-L1~5、PT-01~03、CK-PT、RV-01~03）详见 `references/core-conventions.md` "交互ID速查表"章节。
 
 ### 进度提示
 
@@ -575,85 +586,19 @@ Brief 阶段 PRD 尚未撰写，只能做方向性判断（做哪些屏幕、什
 
 ## 标记体系
 
-### 交互模式标记
+三种模式的标记约定、标准格式、生命周期规则详见 `references/core-conventions.md` "标记体系"章节。核心要点：
 
-| 标记 | 含义 | 使用场景 |
-|------|------|---------|
-| `[建议]` | AI建议 | 交互模式Phase 3撰写中，AI补充的内容，需用户逐条确认 |
-
-### 自主模式标记
-
-| 标记 | 含义 | 使用场景 | 示例 |
-|------|------|---------|------|
-| （无标记） | 已确认事实 | 用户明确说的、知识库中已确认的 | 用户说"涉及OMS和WMS" |
-| `[推断]` | 专业推断 | 行业标准做法、由已知事实推导的必然结论 | 接口超时重试3次后转人工 `[推断]` |
-| `[待确认]` | 需用户确认 | 业务边界决策、特定业务规则、多方案决策点 | 见下方格式 |
-
-**`[待确认]` 标准格式**：
-
-```markdown
-> [待确认] 当库存不足时，系统是否应自动触发采购申请？
-> 当前假设：仅通知仓库主管，不自动触发采购流程。
-> 如需变更此假设，请在审阅时指出。
-```
-
-### 轻量模式标记
-
-| 标记 | 含义 | 使用场景 |
-|------|------|---------|
-| （无标记） | 所有内容默认无标记 | AI推断直接写入，视为合理默认值 |
-| `[待确认]` | 真正的业务歧义 | 仅用于存在多种合理方案、必须由用户决定的业务决策点（每个计入加权复杂度 +2 分） |
-
-轻量模式**不使用** `[推断]` 和 `[建议]` 标记。用户选择轻量模式即表明团队对背景有共识，AI的专业推断视为合理默认值。每个 `[待确认]` 项计入加权复杂度 +2 分，总分 ≥ 8 触发复杂度升级（详见 `references/lite-mode.md`）。
-
-### 标记生命周期
-
-```
-Stage B 生成 → Stage C 审阅 → 用户确认 → 移除标记 → 写入正文
-                              → 用户修改 → 更新内容 → 移除标记 → 写入正文
-```
-
-- `[推断]`：用户未提异议则默认确认，批量移除
-- `[待确认]`：必须等用户明确确认或修改后才移除
-- 详细的标记判断标准见 `references/autonomous-mode.md`
+- **交互模式**：AI 补充内容用 `[建议]` 标注，需用户逐条确认
+- **自主模式**：三级体系 — 无标记（已确认）/ `[推断]`（专业推断）/ `[待确认]`（业务歧义）
+- **轻量模式**：仅用 `[待确认]`（每个计入加权复杂度 +2 分），不使用 `[推断]`/`[建议]`
 
 ---
 
 ## 补充约束
 
-### knowledge-discoveries 格式
+knowledge-discoveries 格式、双向知识链接机制、模式特别约束详见 `references/core-conventions.md` "补充约束"章节。
 
-PRD 过程中发现的新业务知识记录到 `knowledge-discoveries.md`：
-
-```markdown
-# Knowledge Discoveries — {需求名称}
-
-## 新发现的业务规则
-- **{规则描述}** — 来源：{用户确认/澄清讨论} — 建议沉淀到：{domain-xxx.md}
-
-## 系统现状补充
-- **{发现内容}** — 来源：{来源} — 影响：{影响评估}
-
-## 术语补充
-- **{术语}** = {定义} — 来源：{来源}
-```
-
-交付时提示用户："本次发现 N 条新业务知识，是否使用 scm-knowledge-curator 技能导入知识库？"导入方式：将 `knowledge-discoveries.md` 作为 curator 技能的输入材料，curator 解析后更新对应的领域知识卡片和 glossary.yaml
-
-### 双向知识链接
-
-**Workflow → Curator（知识发现导入）**：
-- PRD 过程中发现的新知识自动记录到 `knowledge-discoveries.md`
-- 交付时提示用户一键触发 Curator 导入
-- Curator 导入后更新 `glossary.yaml` 和领域知识卡片，新术语在后续 PRD 中自动生效
-
-**Curator → Workflow（知识更新通知）**：
-- Curator 完成知识梳理后，在 `knowledge-base/_index.md` 的"更新日志"中记录变更
-- Workflow 启动时读取 `_index.md`，如发现自上次 PRD 后知识库有更新，主动提示："知识库在 {日期} 有更新（{变更摘要}），已纳入本次 PRD 背景"
-- 如 `glossary.yaml` 中新增了术语，自动在 PRD 术语章节（Ch.3）引用
-
-### 模式特别约束
-
-轻量模式和自主模式各有额外约束，详见对应 reference 文件：
-- 轻量模式：`references/lite-mode.md` "轻量模式特别约束"章节
-- 自主模式：`references/autonomous-mode.md` "自主模式特别约束"章节
+核心要点：
+- PRD 过程中发现的新业务知识自动记录到 `knowledge-discoveries.md`，交付时提示一键导入 Curator
+- Workflow 启动时如发现知识库有更新，主动提示并纳入 PRD 背景
+- 轻量模式和自主模式的额外约束分别在 `references/lite-mode.md` 和 `references/autonomous-mode.md` 中定义
