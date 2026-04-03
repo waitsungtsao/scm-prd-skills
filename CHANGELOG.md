@@ -6,30 +6,49 @@
 
 ## [2026.04.7] - 2026-04-04
 
+本版本为全面 review 后的系统性升级，覆盖技术健壮性、流程管控、语义检查、反冗余机制四个维度。
+
 ### Added
 
-- **基础测试集 P1**：41 个 pytest 测试覆盖 diagram_core、yaml2drawio、check-prd-consistency、check-knowledge-consistency（`python -m pytest tests/ -v`）
-- **diagram_core.py 共享模块 P5**：从 yaml2drawio.py（1246→489行）和 yaml2svg.py（689→554行）提取校验、布局、颜色常量、CJK 字体检测到共享模块（927行）
-- **package.json P7**：scripts/ 下新增 Node.js 依赖管理，md2docx.mjs 三级模块解析（local → project → global），修复 nvm/fnm/volta 兼容
-- **撰写前结构预校验 NP-06~08 P4**：ID 覆盖完整性、章节映射无遗漏、术语预检（phase3-write.md）
-- **门控 ID 集成验证 P10**：check-skill-consistency.py 新增 check_gate_id_integration()，从 core-conventions.md 交叉验证所有门控 ID
-- **逐章实时一致性检查 P12**：每完成主要章节后静默执行 CK 子集（phase3-write.md）
-- **修订快速路径 P11**：≤2 章节 ≤1 功能点的修订折叠为单次通过（revision-mode.md）
-- **自主模式复杂度检测 F1**：Stage A 末尾加权信号检测，≥5 分建议交互模式（autonomous-mode.md）
-- **快速线框 F2**：命中 ≥3 条原型触发条件时，叙事规划输出文字线框（phase3-write.md）
-- **交付后效果追踪 F4**：修订时可选记录原 PRD 偏差，沉淀为经验反馈（revision-mode.md）
-- **最小启动知识库 P14**：Workflow 首次使用时自动创建 knowledge-base/ 骨架
-- **allow_remote_render 配置 P13**：export-diagrams.py 支持通过 .scm-prd-config.yaml 禁用 mermaid.ink
+- **基础测试集**：45 个 pytest 测试覆盖 diagram_core、yaml2drawio、check-prd-consistency（含叙事信号）、check-knowledge-consistency
+- **diagram_core.py 共享模块**：从 yaml2drawio.py（1246→489行）和 yaml2svg.py（689→554行）提取校验、布局、颜色常量、CJK 字体检测
+- **package.json**：scripts/ 下新增 Node.js 依赖管理，md2docx.mjs 三级模块解析（local → project → global），修复 nvm/fnm/volta 兼容
+- **撰写前结构预校验 NP-06~08**：ID 覆盖完整性、章节映射无遗漏、术语预检（phase3-write.md）
+- **方案评估步骤**（phase3-write.md）：叙事规划流程新增步骤 1.5——因果链自检、方案合理性、成本与权衡，在构思故事时评估方案本身
+- **方案评估验证 NP-09~11**：验证方案评估是否被认真执行——因果链完整/方案逻辑/约束消化
+- **叙事信号检测**（check-prd-consistency.py）：目标-功能悬空、背景空心、验收覆盖率、异常密度、变更点-验收对应 5 项信号
+- **CK-10 叙事连贯性评审**（phase4-review.md）：通读 PRD 后的整体评审——背景因果/问题方案匹配/方案内部自洽/已述风险应对/信息密度均衡
+- **AI 洞察摘要**（phase4-review.md）：三门槛标准（盲区性+高影响+具体性），每条标注影响角色
+- **补充审视提醒**（phase4-review.md）：8 条条件性弱提醒，基于 PRD 内容信号触发
+- **已知背景推断**（phase3-write.md, autonomous-mode.md, phase1-intake.md）：AI 主动推断团队共识让用户确认（反转知识诅咒），判断标准为"所有目标读者都知道"
+- **注意力预算**（phase3-write.md）：叙事主次 × 读者认知两维度交叉决策表
+- **分层 ROI 自检**（phase3-write.md）：章节→段落→句子→关注点四层级注意力 ROI 自检
+- **逐章实时一致性检查**（phase3-write.md）：每完成主要章节后静默执行 CK 子集
+- **修订快速路径**（revision-mode.md）：≤2 章节 ≤1 功能点的修订折叠为单次通过
+- **自主模式复杂度检测**（autonomous-mode.md）：Stage A 末尾加权信号检测，≥5 分建议交互模式
+- **快速线框**（phase3-write.md）：命中 ≥3 条原型触发条件时，叙事规划输出文字线框
+- **交付后效果追踪**（revision-mode.md）：修订时可选记录原 PRD 偏差，沉淀经验反馈
+- **最小启动知识库**：Workflow 首次使用时自动创建 knowledge-base/ 骨架
+- **allow_remote_render 配置**：export-diagrams.py 支持通过 .scm-prd-config.yaml 禁用 mermaid.ink
+- **check-skill-consistency.py 升级至 12 类检查**：新增横切概念自动发现、脚本冒烟测试、加载表对齐、文档新鲜度（README+CONTRIBUTING 绑定）、数值断言同步、模板占位符完整性、Gate ID 集成验证
+- **pre-commit hook**（.githooks/pre-commit）：skill 文件变更时自动运行一致性检查 + 测试，结果输出到 .skill-check-report
+- **CONTRIBUTING.md**：维护者导引——文件职责地图、变更检查清单、hook 说明
+- **README.md 全面重写**：对齐当前实际状态
 
 ### Changed
 
-- **SKILL.md 瘦身 P2**：658→~590 行，交互 ID 速查表 + 标记体系 + 补充约束提取到 references/core-conventions.md
-- **快速初始化 P3**：session-state 存在时折叠步骤 1/2/4 为静默检查，直接跳转恢复位置
-- **门控渐进展示 P8**：progress-display.md 新增决策点预告（第 5 层）和决策配置复用
-- **复杂度评分透明化 P9**：SL-02 评分明细表新增 [待确认] 加分行和阈值显示
-- **Session State 原子写入 P19**：乐观写入 + 临时文件 rename 原子更新
-- **check-knowledge-consistency.py P6**：glossary 和 front matter 解析优先使用 PyYAML，降级正则
-- **check-prd-consistency.py F3**：支持 front matter chapter_id_map 自定义章节-ID 映射
+- **SKILL.md 瘦身**：658→~590 行，交互 ID 速查表 + 标记体系 + 补充约束提取到 references/core-conventions.md
+- **快速初始化**：session-state 存在时折叠步骤 1/2/4 为静默检查，直接跳转恢复位置
+- **门控渐进展示**：progress-display.md 新增决策点预告（第 5 层）和决策配置复用
+- **复杂度评分透明化**：SL-02 评分明细表新增 [待确认] 加分行和阈值显示
+- **Session State 原子写入**：乐观写入 + 临时文件 rename 原子更新
+- **check-knowledge-consistency.py**：glossary 和 front matter 解析优先使用 PyYAML，降级正则
+- **check-prd-consistency.py**：支持 front matter chapter_id_map 自定义章节-ID 映射
+
+### Fixed
+
+- **U+FFFD 编码修复**：SKILL.md（4处）、lite-mode.md（4处）、CHANGELOG.md（2处）的替代字符修复
+- **ARCHITECTURE.md 死链**：README.md 中删除对不存在文件的引用
 
 ## [2026.04.6] - 2026-04-03
 
