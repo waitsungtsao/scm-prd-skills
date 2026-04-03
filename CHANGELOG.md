@@ -198,7 +198,7 @@
 - **Reference 按需加载策略**（SKILL.md）：新增文件读取时机表，避免初始化时一次性加载全部 reference 文件
 - **Knowledge Curator 恢复检测**（scm-knowledge-curator/SKILL.md）：Step 0 检测未完成领域，支持跨会话继续
 - **Knowledge Curator 进度摘要与中断点**（scm-knowledge-curator/SKILL.md）：Step 3 增加终止条件、进度输出和显式中断协议
-- **访谈框架 Module D/E/G 扩展**（interview-framework.md）���TMS 新增承运商管理/路径优化/末端配送（D5-D7），BMS 新增客户计费策略/争议对账/账期管理（E3-E5），报表新增 KPI 定义/预警监控（G3-G4）
+- **访谈框架 Module D/E/G 扩展**（interview-framework.md）：TMS 新增承运商管理/路径优化/末端配送（D5-D7），BMS 新增客户计费策略/争议对账/账期管理（E3-E5），报表新增 KPI 定义/预警监控（G3-G4）
 - **轻量模式单项短路规则**（lite-mode.md）：单个变更点复杂度 ≥4 即建议升级，SL-02 展示评分明细
 - **模式切换 before/after 示例**（autonomous-mode.md）：轻量→自主 Ch.4→Ch.6 转换示例
 - **并行约束说明**（SKILL.md）：明确多会话并行生产同系统域 PRD 的限制
@@ -211,7 +211,7 @@
 - **SC-01 假设审阅方式**（autonomous-mode.md, phase4-review.md）："带例外批量确认"改为 multiSelect 勾选需改项，降低认知负担
 - **Stage C 静默确认机制前置**（autonomous-mode.md）：将 `[推断]` 默认确认规则提升为审阅核心交互原则
 - **模式选择场景示例**（SKILL.md, lite-mode.md）：MC-01 三个模式增加具体使用场景示例
-- **Word 输出策���**（phase3-write.md）：明确 python-docx 依赖，增加 pandoc 回退和"不阻断交付"原则
+- **Word 输出策略**（phase3-write.md）：明确 python-docx 依赖，增加 pandoc 回退和"不阻断交付"原则
 - **Knowledge Curator Step 6 质量检查**（scm-knowledge-curator/SKILL.md）：从泛泛建议改为四类具体可操作后续建议
 - **Knowledge Curator 模板一致性**（knowledge-schema.md, knowledge-card.md, SKILL.md）：统一 Section 6-8 命名、sources.type 枚举值、confirmed 字段语义
 

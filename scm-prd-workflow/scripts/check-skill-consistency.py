@@ -646,29 +646,55 @@ def check_loading_table(files, skill_dir):
 
 
 def check_doc_freshness(skill_dir):
-    """检查10: 文档新鲜度（README vs CHANGELOG 时间对比）。"""
+    """检查10: 文档新鲜度（README + CONTRIBUTING vs CHANGELOG 时间对比）。
+
+    README 和 CONTRIBUTING 应随 CHANGELOG 同步更新。
+    两者绑定提醒——改了一个就应检查另一个是否也需要更新。
+    """
     issues = []
     project_root = os.path.join(skill_dir, '..')
-    readme = os.path.join(project_root, 'README.md')
     changelog = os.path.join(project_root, 'CHANGELOG.md')
-
-    if not os.path.isfile(readme) or not os.path.isfile(changelog):
+    if not os.path.isfile(changelog):
         return issues
 
-    readme_mtime = os.path.getmtime(readme)
     changelog_mtime = os.path.getmtime(changelog)
+    import datetime
 
-    if changelog_mtime > readme_mtime:
-        import datetime
-        delta = datetime.timedelta(seconds=changelog_mtime - readme_mtime)
-        days = delta.days
-        if days >= 1:
-            issues.append({
-                'severity': '警告',
-                'type': '文档新鲜度',
-                'message': f'README.md 比 CHANGELOG.md 旧 {days} 天 — 可能需要同步更新',
-                'suggestion': '检查 CHANGELOG 中的最新变更是否已反映到 README',
-            })
+    # 检查 README 和 CONTRIBUTING 对 CHANGELOG 的新鲜度
+    doc_pair = [
+        ('README.md', '项目介绍、安装、使用、结构'),
+        ('CONTRIBUTING.md', '维护者导引、文件职责、检查清单'),
+    ]
+
+    stale_docs = []
+    for doc_name, desc in doc_pair:
+        doc_path = os.path.join(project_root, doc_name)
+        if not os.path.isfile(doc_path):
+            continue
+        doc_mtime = os.path.getmtime(doc_path)
+        if changelog_mtime > doc_mtime:
+            delta = datetime.timedelta(seconds=changelog_mtime - doc_mtime)
+            if delta.days >= 1:
+                stale_docs.append((doc_name, delta.days, desc))
+
+    for doc_name, days, desc in stale_docs:
+        issues.append({
+            'severity': '警告',
+            'type': '文档新鲜度',
+            'message': f'{doc_name} 比 CHANGELOG.md 旧 {days} 天 — 可能需要同步更新（{desc}）',
+            'suggestion': f'检查 CHANGELOG 中的最新变更是否已反映到 {doc_name}',
+        })
+
+    # 绑定提醒：README 和 CONTRIBUTING 应同步更新
+    if len(stale_docs) == 1:
+        stale_name = stale_docs[0][0]
+        fresh_name = 'CONTRIBUTING.md' if stale_name == 'README.md' else 'README.md'
+        issues.append({
+            'severity': '信息',
+            'type': '文档同步',
+            'message': f'{fresh_name} 已更新但 {stale_name} 未同步 — 建议一起更新',
+            'suggestion': f'README 和 CONTRIBUTING 描述同一个项目，应保持同步',
+        })
 
     return issues
 
