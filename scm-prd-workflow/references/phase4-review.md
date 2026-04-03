@@ -361,12 +361,15 @@ review_date: YYYY-MM-DD
 > 选项：
 > - **Word 文档** — 同时生成 .docx 格式
 > - **交付精要** — 生成一页摘要：关键假设、跨系统依赖、风险提示
+> - **测试用例骨架** — 从验收标准生成 QA 测试 checklist
+> - **PRD 关联视图** — 生成跨 PRD 接口依赖图（需已有约束索引）
 > 问题2（header: "知识库"）: "是否有需要补充到知识库的新业务信息？" → **有，需要补充**（列出待补充内容） / **没有**（无需补充）
 
 确认后执行：
 1. 更新PRD版本号
 2. 按选择的格式生成文件
 3. 如选中"交付精要"→ 生成 `delivery-brief.md`（提取规则见下方）；如同时选中 Word → 也生成 `delivery-brief.docx`
+3a. 如选中"测试用例骨架"→ 生成 `test-cases.md`（提取规则见下方"测试用例骨架提取"）
 4. 将所有产出文件呈现给用户
 5. 如 `diagrams/` 目录包含 `.drawio` 文件，提示用户："流程图也已输出为 draw.io 格式（`diagrams/*.drawio`），如需调整布局或细节可用 draw.io 编辑器打开编辑"
 6. 如用户选择补充知识库，引导使用 scm-knowledge-curator 技能
@@ -400,6 +403,69 @@ review_date: YYYY-MM-DD
 ```
 
 **提取原则**：仅聚合 PRD 中已有信息，不产生新内容；每个表格无内容时省略该节。
+
+#### 测试用例骨架提取
+
+从 PRD Ch.9 验收标准 + Ch.6 功能规则自动生成 `test-cases.md`，为 QA 团队提供测试 checklist 起点。
+
+```markdown
+# 测试用例骨架 — {需求名称}
+
+> 自动从 PRD 提取，需 QA 团队补充具体测试数据和步骤细节。
+
+## 功能测试
+
+### F-001 {功能名称}
+- [ ] **正向流程**：{Ch.9 中 F-001 对应的验收标准}
+- [ ] **规则1验证**：{Ch.6 F-001 步骤-规则表中的规则1}
+- [ ] **规则2验证**：{Ch.6 F-001 步骤-规则表中的规则2}
+- [ ] **异常场景**：{Ch.6 F-001 的异常处理规则}
+
+### F-002 {功能名称}
+（同上结构）
+
+## 接口测试（如有 IF-XXX）
+- [ ] **IF-001 {名称}**：正常调用 → 预期响应
+- [ ] **IF-001 超时**：调用超时 → 预期降级行为
+- [ ] **IF-001 异常数据**：字段缺失/格式错误 → 预期校验结果
+
+## 边界与异常
+（从 CK-4 异常处理检查结果中提取未覆盖的异常场景）
+
+## 非功能测试（如 Ch.8 有量化指标）
+- [ ] **性能**：{Ch.8 性能指标}
+- [ ] **并发**：{Ch.8 并发要求}
+```
+
+**提取规则**：
+- 每个 F-XXX 生成一个测试组，从 Ch.9 提取验收标准作为正向用例，从 Ch.6 步骤-规则表提取规则验证用例
+- 每个 IF-XXX 生成正常/超时/异常三类用例
+- Ch.8 有量化指标（如"响应时间 <2s"）时生成非功能用例
+- 仅生成骨架（标题 + 一行描述），不编造测试数据
+
+#### PRD 关联视图生成
+
+读取 `requirements/_constraints-index.yaml`，生成 Mermaid 接口依赖图 `requirements/_prd-dependency.mermaid`：
+
+```mermaid
+graph LR
+    subgraph OMS
+        PRD-order-split["拆单 V1.2"]
+        PRD-order-merge["合单 V1.0"]
+    end
+    subgraph WMS
+        PRD-inventory-alert["库存预警 V1.0"]
+    end
+    PRD-order-split -->|"IF-001 拆单推送"| PRD-inventory-alert
+    PRD-order-merge -->|"IF-002 合单通知"| PRD-inventory-alert
+```
+
+**生成规则**：
+- 每个 PRD 条目渲染为节点（显示名称 + 版本号）
+- 按 `scope_in` 中的系统域（OMS/WMS/TMS/BMS）分组为 subgraph
+- 从 `interfaces` 字段提取接口关系：如 PRD-A 定义了 IF-001（方向 OMS→WMS），且 PRD-B 的 `scope_in` 包含 WMS，则画 A→B 的连线
+- 当前 PRD 节点高亮（加粗边框）
+- 如约束索引不存在或仅含 1 个 PRD，跳过此输出并提示："约束索引中 PRD 数量不足，关联视图需至少 2 个 PRD"
 
 #### 约束索引提取
 

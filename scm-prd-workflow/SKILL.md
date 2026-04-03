@@ -123,6 +123,27 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
 - 每个阶段的产出文件一旦生成，后续阶段可随时引用
 - **轻量模式可随时升级**到自主模式或交互模式，升级时保留已有PRD内容作为基础
 
+### Session 状态持久化
+
+每次阶段转换时，在需求目录下写入 `.session-state.yaml`，记录当前进度：
+
+```yaml
+mode: autonomous           # interactive / autonomous / lite / revision
+stage: Stage B             # Phase 1-4 / Stage A-D / Stage L1-L3 / Stage RV-A-D
+step: 叙事规划确认          # 当前步骤的中文名称
+requirement_type: update   # new / update / mixed
+pending:                   # 未完成的操作
+  - "CD-01 用户尚未选择章节详略"
+files_generated:           # 已生成的文件列表
+  - intake.md
+  - clarification.md
+last_updated: 2026-04-03T14:30:00
+```
+
+**写入时机**：每次阶段转换（Phase/Stage 切换）、每次生成文件后、每次用户确认后。
+**读取时机**：启动初始化步骤 3。
+**删除时机**：PRD 最终交付完成时删除（交付 = 流程结束）。
+
 ### 启动时的初始化
 
 1. 检查当前目录是否存在 `knowledge-base/` 文件夹
@@ -131,10 +152,12 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写产
    - 检查 `glossary.yaml` 是否存在：如存在则读取用于术语一致性校验；如不存在或格式异常则跳过术语校验（优雅降级，不阻断流程），并在首次需要引用术语时提示用户可通过 scm-knowledge-curator 技能生成术语表
    - 检查 `system-conventions.md` 是否存在：如存在则读取，作为AI判断"哪些是标准行为无需描述"的参考依据（不在PRD中直接引用）；如不存在则记录 `conventions_available = false`，**不在启动时提示创建**——延后到 Phase 3/Stage B 叙事规划阶段，仅当 `requirement_type = update|mixed` 且发现需要引用系统公约时才提示
 2. 确认需求工作目录：`requirements/REQ-{日期}-{需求简称}/`
-3. 检查是否有未完成的需求，询问是否继续：
-   - 存在 `intake.md` 但没有 PRD → 中断于录入/澄清阶段
-   - 存在 PRD 文件但章节数不足（交互/自主模式 <10 章、轻量模式 <7 章）→ 中断于撰写阶段
-   - 存在 PRD 但没有 `review-report.md`（交互/自主模式）→ 中断于自检阶段
+3. **恢复检测**：检查需求目录下是否有未完成的工作，优先使用 `.session-state.yaml`（精确恢复），降级为文件存在性判断（粗略恢复）：
+   - 如 `.session-state.yaml` 存在 → 读取精确的阶段/步骤/pending 操作，告知用户上次中断位置，询问是否继续
+   - 如 `.session-state.yaml` 不存在 → 按文件存在性推断：
+     - 存在 `intake.md` 但没有 PRD → 中断于录入/澄清阶段
+     - 存在 PRD 文件但章节数不足（交互/自主模式 <10 章、轻量模式 <7 章）→ 中断于撰写阶段
+     - 存在 PRD 但没有 `review-report.md`（交互/自主模式）→ 中断于自检阶段
    - 存在已完成的 PRD（有 `review-report.md` 且章节数达标）→ 提供修订入口（见下方"修订入口"章节）
 4. **读取约束索引**：检查 `requirements/_constraints-index.yaml` 是否存在：
    - 如存在 → 读取索引，了解已有 PRD 的接口定义、数据实体、业务规则摘要，作为"已有约束"注入当前需求，避免跨需求矛盾
@@ -615,6 +638,18 @@ PRD 过程中发现的新业务知识记录到 `knowledge-discoveries.md`：
 ```
 
 交付时提示用户："本次发现 N 条新业务知识，是否使用 scm-knowledge-curator 技能导入知识库？"导入方式：将 `knowledge-discoveries.md` 作为 curator 技能的输入材料，curator 解析后更新对应的领域知识卡片和 glossary.yaml
+
+### 双向知识链接
+
+**Workflow → Curator（知识发现导入）**：
+- PRD 过程中发现的新知识自动记录到 `knowledge-discoveries.md`
+- 交付时提示用户一键触发 Curator 导入
+- Curator 导入后更新 `glossary.yaml` 和领域知识卡片，新术语在后续 PRD 中自动生效
+
+**Curator → Workflow（知识更新通知）**：
+- Curator 完成知识梳理后，在 `knowledge-base/_index.md` 的"更新日志"中记录变更
+- Workflow 启动时读取 `_index.md`，如发现自上次 PRD 后知识库有更新，主动提示："知识库在 {日期} 有更新（{变更摘要}），已纳入本次 PRD 背景"
+- 如 `glossary.yaml` 中新增了术语，自动在 PRD 术语章节（Ch.3）引用
 
 ### 模式特别约束
 

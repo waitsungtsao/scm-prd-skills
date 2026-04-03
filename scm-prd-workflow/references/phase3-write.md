@@ -316,6 +316,29 @@ PRD是给不同读者看的，信息需要分层：
 
 当 `knowledge-base/system-conventions.md` 存在时，AI以此为参考判断"哪些是标准行为可以不写"。系统公约是AI的内部参考材料，**不在PRD正文中引用或提及**。
 
+### PRD 章节自定义
+
+如果团队有特定的 PRD 章节结构需求（如增加"合规审查"章节、删除"非功能性需求"章节），可在 `knowledge-base/system-conventions.md` 中增加 `prd_structure` 配置段：
+
+```yaml
+# system-conventions.md 末尾（可选配置）
+prd_structure:
+  extra_chapters:            # 在标准10章之后追加的自定义章节
+    - title: "合规与审计"
+      position: after_ch8    # 插入位置：after_ch{N}
+      description: "数据合规、审计日志、监管要求"
+  skip_chapters:             # 默认省略的章节（用户仍可在 CD-01 中选回）
+    - ch8                    # 非功能性需求（团队有独立 NFR 文档）
+  rename_chapters:           # 章节重命名
+    ch10: "风险与遗留项"     # 原"待定事项与附录"改为"风险与遗留项"
+```
+
+**执行逻辑**：
+- 叙事规划阶段读取此配置，自动调整章节列表和编号
+- `extra_chapters` 追加到 CD-01 的选项中
+- `skip_chapters` 对应的章节在 CD-01 中默认不选（但用户可主动选回）
+- 如无此配置段，按标准 10 章结构生成
+
 ---
 
 ## 各章节撰写参考

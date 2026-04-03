@@ -4,6 +4,30 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.6] - 2026-04-03
+
+### Added
+
+- **测试用例骨架**（phase4-review.md）：交付选项新增"测试用例骨架"，从 Ch.9 验收标准 + Ch.6 规则自动生成 QA checklist
+- **PRD 关联视图**（phase4-review.md）：交付选项新增"PRD 关联视图"，基于约束索引生成 Mermaid 接口依赖图
+- **Session 断点恢复**（SKILL.md）：新增 `.session-state.yaml` 持久化当前阶段/步骤/pending 操作，会话中断后精确恢复
+- **PRD 章节自定义**（phase3-write.md）：支持通过 system-conventions.md 的 `prd_structure` 配置段增删/重命名章节
+- **双向知识链接**（SKILL.md）：Curator 更新知识库后，Workflow 启动时自动感知变更并纳入 PRD 背景
+- **Curator 一致性检查脚本**（check-knowledge-consistency.py）：KC-1~KC-5 自动检查术语双向引用、domain code 大小写、索引覆盖率、完整度字段、source type 合法性
+
+### Changed
+
+- **禁止/必须事项前移**（SKILL.md）：从文件末尾移至角色定位之后，提升 LLM 规则遵守率
+- **模式特别约束下沉**（SKILL.md → lite-mode.md, autonomous-mode.md）：轻量/自主约束移入各自 reference 文件
+- **MC-01 简化**（SKILL.md）：从 2 个问题减为 1 个（仅问模式），需求类型改为 AI 在 Phase 1/Stage A 中自动推断
+- **[待确认]硬上限取消**（SKILL.md, lite-mode.md）：原 ≤3 个硬限制改为每项+2分纳入加权复杂度统一评估
+- **glossary domain code 统一**（glossary-template.yaml）：小写 oms/wms 统一为大写 OMS/WMS
+- **glossary source type 补全**（glossary-template.yaml）：添加 observation 类型
+- **yaml2drawio 字符宽度估算**（yaml2drawio.py）：从简单 ord>127 改为 Unicode 区间精确判断 CJK/全角字符
+- **check-prd-consistency YAML 解析**（check-prd-consistency.py）：从 string find 改为正则匹配行首---
+- **export-diagrams 限流**（export-diagrams.py）：mermaid.ink API 调用间增加 1 秒间隔
+- **md2docx.py 降级标注**：文件头标注为降级备选方案，推荐使用 JS 版
+
 ## [2026.04.5] - 2026-04-03
 
 ### Added
