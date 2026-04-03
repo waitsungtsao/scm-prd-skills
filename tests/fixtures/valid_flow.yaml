@@ -1,0 +1,20 @@
+diagram:
+  title: "Simple Process"
+  type: flow
+
+nodes:
+  - id: start
+    label: "Start"
+    type: start
+  - id: step1
+    label: "Process"
+    type: process
+  - id: end
+    label: "End"
+    type: end
+
+edges:
+  - from: start
+    to: step1
+  - from: step1
+    to: end

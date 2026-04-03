@@ -1,0 +1,53 @@
+diagram:
+  title: "Order Processing Flow"
+  type: swimlane
+
+lanes:
+  - id: oms
+    label: "OMS"
+    color: blue
+  - id: wms
+    label: "WMS"
+    color: green
+
+nodes:
+  - id: start
+    label: "Start"
+    type: start
+    lane: oms
+  - id: create_order
+    label: "Create Order"
+    type: process
+    lane: oms
+  - id: check_stock
+    label: "Check Stock"
+    type: decision
+    lane: wms
+  - id: allocate
+    label: "Allocate"
+    type: process
+    lane: wms
+  - id: backorder
+    label: "Backorder"
+    type: process
+    lane: oms
+  - id: end
+    label: "End"
+    type: end
+    lane: oms
+
+edges:
+  - from: start
+    to: create_order
+  - from: create_order
+    to: check_stock
+  - from: check_stock
+    to: allocate
+    label: "Yes"
+  - from: check_stock
+    to: backorder
+    label: "No"
+  - from: allocate
+    to: end
+  - from: backorder
+    to: end

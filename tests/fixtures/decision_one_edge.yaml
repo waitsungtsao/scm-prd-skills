@@ -1,0 +1,21 @@
+diagram:
+  title: "Decision With One Edge"
+  type: flow
+
+nodes:
+  - id: start
+    label: "Start"
+    type: start
+  - id: decide
+    label: "Decide"
+    type: decision
+  - id: end
+    label: "End"
+    type: end
+
+edges:
+  - from: start
+    to: decide
+  - from: decide
+    to: end
+    label: "Yes"

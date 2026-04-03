@@ -1,0 +1,9 @@
+diagram:
+  type: flow
+
+nodes:
+  - id: start
+    label: "Start"
+    type: start
+
+edges: []

@@ -1,0 +1,26 @@
+terms:
+  - term: "SKU"
+    related: ["库存单元"]
+    domain: ["WMS"]
+    source:
+      type: document
+  - term: "库存单元"
+    related: []
+    domain: ["wms"]
+    source:
+      type: interview
+  - term: "拣货"
+    related: ["波次"]
+    domain: ["WMS"]
+    source:
+      type: inference
+  - term: "波次"
+    related: ["拣货"]
+    domain: ["WMS"]
+    source:
+      type: interview
+  - term: "签收"
+    related: []
+    domain: ["TMS"]
+    source:
+      type: magic

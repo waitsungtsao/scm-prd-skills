@@ -1,0 +1,13 @@
+diagram:
+  title: "Duplicate IDs"
+  type: flow
+
+nodes:
+  - id: step1
+    label: "Step 1"
+    type: process
+  - id: step1
+    label: "Step 1 Again"
+    type: process
+
+edges: []

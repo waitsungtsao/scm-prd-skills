@@ -1,0 +1,10 @@
+diagram:
+  title: "Bad Type"
+  type: gantt
+
+nodes:
+  - id: start
+    label: "Start"
+    type: start
+
+edges: []
