@@ -811,6 +811,7 @@ def check_doc_freshness(skill_dir):
     doc_pair = [
         ('README.md', '项目介绍、安装、使用、结构'),
         ('CONTRIBUTING.md', '维护者导引、文件职责、检查清单'),
+        ('CLAUDE.md', 'AI 项目指引、架构、设计原则、约定'),
     ]
 
     stale_docs = []
@@ -832,15 +833,17 @@ def check_doc_freshness(skill_dir):
             'suggestion': f'检查 CHANGELOG 中的最新变更是否已反映到 {doc_name}',
         })
 
-    # 绑定提醒：README 和 CONTRIBUTING 应同步更新
-    if len(stale_docs) == 1:
-        stale_name = stale_docs[0][0]
-        fresh_name = 'CONTRIBUTING.md' if stale_name == 'README.md' else 'README.md'
+    # 绑定提醒：README / CONTRIBUTING / CLAUDE.md 应同步更新
+    all_doc_names = [name for name, _ in doc_pair]
+    stale_names = {d[0] for d in stale_docs}
+    fresh_names = [n for n in all_doc_names if n not in stale_names
+                   and os.path.isfile(os.path.join(project_root, n))]
+    if stale_docs and fresh_names:
         issues.append({
             'severity': '信息',
             'type': '文档同步',
-            'message': f'{fresh_name} 已更新但 {stale_name} 未同步 — 建议一起更新',
-            'suggestion': f'README 和 CONTRIBUTING 描述同一个项目，应保持同步',
+            'message': f'{", ".join(fresh_names)} 已更新但 {", ".join(stale_names)} 未同步',
+            'suggestion': f'README / CONTRIBUTING / CLAUDE.md 描述同一个项目，建议一起更新',
         })
 
     return issues
