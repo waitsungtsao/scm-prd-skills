@@ -3,6 +3,7 @@ knowledge-base/
 requirements/
 .scm-prd-config.yaml
 .scm-prd-env-cache.json
+.skill-check-report
 
 # OS 文件
 .DS_Store
