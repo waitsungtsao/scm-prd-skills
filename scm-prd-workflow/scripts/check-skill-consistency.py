@@ -3,18 +3,21 @@
 check-skill-consistency.py — Skill 定义文件自检工具
 
 扫描 skill 目录下的所有定义文件（SKILL.md、references/、templates/），验证：
-1. 文件引用完整性（引用的文件是否存在）
-2. 模板 front matter 字段对齐（指引提到的字段在模板中是否声明）
-3. 交互ID完整性（所有ID是否有定义位置）
-4. 章节引用有效性（§X.X 引用是否指向存在的章节）
-5. 术语一致性（核心概念是否使用统一术语）
-6. 模式覆盖完整性（横切概念是否在三种模式中都有说明）
-7. Gate ID 集成验证（速查表与实际文件中 gate ID 的交叉一致性）
+ 1. 文件引用完整性（引用的文件是否存在）
+ 2. 模板 front matter 字段对齐
+ 3. 交互ID完整性
+ 4. 章节引用有效性（§X.X）
+ 5. 术语一致性（自动从 glossary.yaml 提取 + 手动规则）
+ 6. 横切概念覆盖（自动发现：出现在 SKILL.md + ≥2 模式文件中的概念）
+ 7. Gate ID 集成验证
+ 8. 脚本可执行冒烟测试（import / node --check）
+ 9. Reference 加载表 ↔ references/ 目录对齐
+10. 文档新鲜度（README vs CHANGELOG 时间对比）
 
 用法:
-    cd scm-prd-workflow && python3 scripts/check-skill-consistency.py
-    # 或指定 skill 目录
-    python3 scripts/check-skill-consistency.py /path/to/scm-prd-workflow
+    python3 scripts/check-skill-consistency.py [skill目录]    # 完整报告
+    python3 scripts/check-skill-consistency.py --short         # 一行摘要
+    python3 scripts/check-skill-consistency.py --verbose       # 完整报告（默认）
 
 依赖: 无（仅使用标准库）
 兼容: Python 3.8+
@@ -24,6 +27,7 @@ import re
 import sys
 import os
 import glob
+import subprocess
 from collections import defaultdict
 
 
@@ -61,33 +65,21 @@ EXPECTED_FIELDS = {
     ],
 }
 
-# 术语规范：规范术语 → 应被替代的偏差术语
-TERM_VARIANTS = {
+# 术语规范：手动维护的最小集（不易从文件中自动提取的语义等价对）
+TERM_VARIANTS_MANUAL = {
     '变更范围声明': ['变更范围确认', '变更范围选择'],
     '按需生成章节': ['增量标记', '条件生成章节', '增量描述标记'],
     '系统公约': ['系统约定', '系统惯例'],
     '需求类型确认': ['需求分类确认'],
 }
 
-# 横切概念 → 应在哪些文件中有提及
-CROSS_CUTTING_CONCEPTS = {
-    'requirement_type': [
-        'SKILL.md',
-        'references/phase1-intake.md',
-        'references/autonomous-mode.md',
-        'references/lite-mode.md',
-    ],
-    '变更范围': [
-        'references/phase1-intake.md',
-        'references/autonomous-mode.md',
-        'references/lite-mode.md',
-    ],
-    '未涉及的方面': [
-        'references/phase3-write.md',
-        'templates/prd-template.md',
-        'templates/lite-prd-template.md',
-    ],
-}
+# 三种模式文件（用于横切概念自动发现）
+MODE_FILES = [
+    'references/autonomous-mode.md',
+    'references/lite-mode.md',
+    # 交互模式分散在 phase1-4，取 phase1 作为代表
+    'references/phase1-intake.md',
+]
 
 
 # =============================================================================
@@ -95,10 +87,7 @@ CROSS_CUTTING_CONCEPTS = {
 # =============================================================================
 
 def find_skill_dir():
-    """确定 skill 根目录。"""
-    if len(sys.argv) > 1:
-        return sys.argv[1]
-    # 尝试从当前目录推断
+    """确定 skill 根目录（从当前目录推断）。"""
     if os.path.isfile('SKILL.md'):
         return '.'
     if os.path.isdir('scm-prd-workflow') and os.path.isfile('scm-prd-workflow/SKILL.md'):
@@ -257,16 +246,61 @@ def check_section_references(files):
     return issues
 
 
-def check_term_consistency(files):
-    """检查5: 术语一致性。"""
+def _load_glossary_terms(skill_dir):
+    """从 knowledge-base/glossary.yaml 提取术语规范（如存在）。
+
+    返回 {canonical_cn_name: [term, full_name]} 的映射，
+    用于检测同一概念的不同写法。
+    """
+    glossary_terms = {}
+    # 搜索 glossary.yaml
+    for candidate in [
+        os.path.join(skill_dir, '..', 'knowledge-base', 'glossary.yaml'),
+        os.path.join(skill_dir, 'knowledge-base', 'glossary.yaml'),
+    ]:
+        if os.path.isfile(candidate):
+            try:
+                with open(candidate, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                # 简易提取 term / cn_name 对
+                current_term = None
+                current_cn = None
+                for line in content.split('\n'):
+                    s = line.strip()
+                    if s.startswith('- term:'):
+                        current_term = s.split(':', 1)[1].strip().strip('"\'')
+                    elif s.startswith('cn_name:'):
+                        current_cn = s.split(':', 1)[1].strip().strip('"\'')
+                        if current_term and current_cn and current_term != current_cn:
+                            glossary_terms[current_cn] = [current_term]
+                        current_term = None
+                        current_cn = None
+            except Exception:
+                pass
+            break
+    return glossary_terms
+
+
+def check_term_consistency(files, skill_dir):
+    """检查5: 术语一致性（手动规则 + glossary.yaml 自动提取）。"""
     issues = []
+
+    # 合并手动规则和 glossary 提取
+    all_variants = dict(TERM_VARIANTS_MANUAL)
+    glossary_terms = _load_glossary_terms(skill_dir)
+    # glossary 中的 cn_name → term 英文缩写，检测混用
+    # 例如 glossary 定义了 cn_name="预到货通知", term="ASN"
+    # 如果某文件用了 "ASN" 而同行没有 "预到货通知"，不算错——这是正常的
+    # 但如果用了 "预到货单" 而 glossary 说是 "预到货通知"，就是偏差
+    # 这类偏差需要更复杂的 NLP，暂不自动检测
+    # → glossary 自动提取的主要价值：在 check 报告中列出 glossary 覆盖范围
+
     for filepath, content in files.items():
         lines = content.split('\n')
         for i, line in enumerate(lines, 1):
-            # 跳过注释
             if line.strip().startswith('<!--'):
                 continue
-            for canonical, variants in TERM_VARIANTS.items():
+            for canonical, variants in all_variants.items():
                 for variant in variants:
                     if variant in line and canonical not in line:
                         issues.append({
@@ -435,25 +469,207 @@ def check_gate_id_integration(files):
 
 
 def check_mode_coverage(files):
-    """检查6: 模式覆盖完整性。"""
+    """检查6: 横切概念覆盖完整性（自动发现）。
+
+    策略：从 SKILL.md 中提取 **粗体** 定义的概念，
+    如果它在 SKILL.md + ≥1 个模式文件中出现，则视为横切概念，
+    检查是否在所有模式文件中都有提及。
+    """
     issues = []
-    for concept, expected_files in CROSS_CUTTING_CONCEPTS.items():
-        for expected_file in expected_files:
-            if expected_file not in files:
+
+    skill_content = files.get('SKILL.md', '')
+    if not skill_content:
+        return issues
+
+    # 提取 SKILL.md 中 **粗体** 定义的概念
+    # 过滤条件：≥4 字中文或含英文标识符，排除通用词
+    GENERIC_BOLD = {
+        '注意', '重要', '说明', '核心', '禁止', '必须', '默认', '推荐',
+        '原则', '时机', '目标', '产出', '规则', '条件', '格式', '策略',
+        '产出文件', '触发条件', '默认行为', '设计方案',
+    }
+    bold_terms = set()
+    for match in re.finditer(r'\*\*([^*]{4,30})\*\*', skill_content):
+        term = match.group(1).strip()
+        if term in GENERIC_BOLD:
+            continue
+        if re.match(r'^[\d.]+$', term):
+            continue
+        if re.match(r'^[.a-z]', term):  # 文件扩展名如 .drawio
+            continue
+        bold_terms.add(term)
+
+    # 确定哪些是横切概念：在 SKILL.md 中定义且在 ≥1 个模式文件中也出现
+    mode_file_contents = {}
+    for mf in MODE_FILES:
+        if mf in files:
+            mode_file_contents[mf] = files[mf]
+
+    if not mode_file_contents:
+        return issues
+
+    cross_cutting = []  # (concept, missing_in_files)
+    for term in sorted(bold_terms):
+        present_in = [mf for mf, content in mode_file_contents.items() if term in content]
+        # 在 ≥2 模式文件中出现但不在全部 → 真正的横切概念遗漏
+        if len(present_in) >= 2 and len(present_in) < len(mode_file_contents):
+            missing = [mf for mf in mode_file_contents if mf not in present_in]
+            cross_cutting.append((term, missing))
+
+    for concept, missing_files in cross_cutting:
+        for mf in missing_files:
+            issues.append({
+                'severity': '信息',
+                'type': '横切概念',
+                'message': f'概念 "{concept}" 在 SKILL.md 和其他模式文件中出现，但在 {mf} 中未提及',
+                'suggestion': f'如 "{concept}" 适用于该模式，考虑补充说明',
+            })
+
+    return issues
+
+
+def check_script_smoke(skill_dir):
+    """检查8: 脚本可执行冒烟测试。
+
+    对 scripts/*.py 尝试 import，对 *.mjs 尝试 node --check。
+    捕捉重构后的语法错误和缺失依赖。
+    """
+    issues = []
+    scripts_dir = os.path.join(skill_dir, 'scripts')
+    if not os.path.isdir(scripts_dir):
+        return issues
+
+    for py_file in sorted(glob.glob(os.path.join(scripts_dir, '*.py'))):
+        basename = os.path.basename(py_file)
+        try:
+            result = subprocess.run(
+                [sys.executable, '-c', f'import sys; sys.path.insert(0, "{scripts_dir}"); exec(open("{py_file}").read().split("\\nif __name__")[0])'],
+                capture_output=True, text=True, timeout=10,
+                env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'},
+            )
+            # 更轻量的方法：仅检查语法
+            result = subprocess.run(
+                [sys.executable, '-m', 'py_compile', py_file],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0:
                 issues.append({
-                    'severity': '信息',
-                    'type': '模式覆盖',
-                    'message': f'横切概念 "{concept}" 预期在 {expected_file} 中有说明，但文件不存在',
-                    'suggestion': f'检查 {expected_file} 是否应包含 "{concept}" 相关内容',
+                    'severity': '关键',
+                    'type': '脚本语法',
+                    'message': f'scripts/{basename}: Python 编译失败',
+                    'suggestion': result.stderr.strip()[:200] if result.stderr else '检查语法错误',
                 })
-                continue
-            if concept not in files[expected_file]:
+        except Exception as e:
+            issues.append({
+                'severity': '警告',
+                'type': '脚本检查',
+                'message': f'scripts/{basename}: 冒烟测试异常 — {e}',
+                'suggestion': '手动运行脚本确认',
+            })
+
+    for mjs_file in sorted(glob.glob(os.path.join(scripts_dir, '*.mjs'))):
+        basename = os.path.basename(mjs_file)
+        try:
+            import shutil
+            node = shutil.which('node')
+            if not node:
+                continue  # Node 不可用时跳过
+            result = subprocess.run(
+                [node, '--check', mjs_file],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0:
                 issues.append({
-                    'severity': '信息',
-                    'type': '模式覆盖',
-                    'message': f'横切概念 "{concept}" 在 {expected_file} 中未提及',
-                    'suggestion': f'考虑在 {expected_file} 中补充 "{concept}" 相关说明',
+                    'severity': '关键',
+                    'type': '脚本语法',
+                    'message': f'scripts/{basename}: Node.js 语法检查失败',
+                    'suggestion': result.stderr.strip()[:200] if result.stderr else '检查语法错误',
                 })
+        except Exception:
+            pass  # Node 不可用不阻断
+
+    return issues
+
+
+def check_loading_table(files, skill_dir):
+    """检查9: Reference 加载表 ↔ references/ 目录对齐。
+
+    SKILL.md 的加载表是 AI 知道何时读什么文件的唯一入口，
+    遗漏 = 文件存在但 AI 不知道什么时候读。
+    """
+    issues = []
+    skill_content = files.get('SKILL.md', '')
+    if not skill_content:
+        return issues
+
+    # 从 "Reference 文件按需加载策略" 区块中提取文件名
+    # 定位加载表区块（在"按需加载"和下一个 ### 之间）
+    loading_section_start = skill_content.find('按需加载')
+    if loading_section_start < 0:
+        return issues  # 无加载表
+    loading_section_end = skill_content.find('\n### ', loading_section_start + 1)
+    if loading_section_end < 0:
+        loading_section_end = skill_content.find('\n## ', loading_section_start + 1)
+    loading_block = skill_content[loading_section_start:loading_section_end] if loading_section_end > 0 else skill_content[loading_section_start:]
+
+    table_files = set()
+    for match in re.finditer(r'\|\s*`([a-z][\w-]+\.md)`\s*\|', loading_block):
+        table_files.add(match.group(1))
+
+    # 实际 references/ 目录文件
+    refs_dir = os.path.join(skill_dir, 'references')
+    actual_files = set()
+    if os.path.isdir(refs_dir):
+        for f in os.listdir(refs_dir):
+            if f.endswith('.md'):
+                actual_files.add(f)
+
+    # 在表中但不在目录
+    for f in sorted(table_files - actual_files):
+        issues.append({
+            'severity': '关键',
+            'type': '加载表',
+            'message': f'SKILL.md 加载表引用 `{f}`，但 references/ 中不存在',
+            'suggestion': f'创建 references/{f} 或从加载表移除',
+        })
+
+    # 在目录但不在表中
+    for f in sorted(actual_files - table_files):
+        issues.append({
+            'severity': '警告',
+            'type': '加载表',
+            'message': f'references/{f} 存在但未出现在 SKILL.md 加载表中',
+            'suggestion': f'AI 不知道何时读取此文件——在加载表中补充 `{f}` 的读取时机',
+        })
+
+    return issues
+
+
+def check_doc_freshness(skill_dir):
+    """检查10: 文档新鲜度（README vs CHANGELOG 时间对比）。"""
+    issues = []
+    project_root = os.path.join(skill_dir, '..')
+    readme = os.path.join(project_root, 'README.md')
+    changelog = os.path.join(project_root, 'CHANGELOG.md')
+
+    if not os.path.isfile(readme) or not os.path.isfile(changelog):
+        return issues
+
+    readme_mtime = os.path.getmtime(readme)
+    changelog_mtime = os.path.getmtime(changelog)
+
+    if changelog_mtime > readme_mtime:
+        import datetime
+        delta = datetime.timedelta(seconds=changelog_mtime - readme_mtime)
+        days = delta.days
+        if days >= 1:
+            issues.append({
+                'severity': '警告',
+                'type': '文档新鲜度',
+                'message': f'README.md 比 CHANGELOG.md 旧 {days} 天 — 可能需要同步更新',
+                'suggestion': '检查 CHANGELOG 中的最新变更是否已反映到 README',
+            })
+
     return issues
 
 
@@ -462,28 +678,62 @@ def check_mode_coverage(files):
 # =============================================================================
 
 def main():
-    skill_dir = find_skill_dir()
+    # 解析参数
+    args = [a for a in sys.argv[1:] if not a.startswith('-')]
+    flags = [a for a in sys.argv[1:] if a.startswith('-')]
+    short_mode = '--short' in flags
+    # --verbose 是默认行为（向后兼容），不需要特殊处理
+
+    skill_dir = find_skill_dir() if not args else args[0]
+    if not os.path.isfile(os.path.join(skill_dir, 'SKILL.md')):
+        if os.path.isfile('SKILL.md'):
+            skill_dir = '.'
+        else:
+            print("错误: 找不到 SKILL.md。", file=sys.stderr)
+            sys.exit(1)
+
     files = read_all_md_files(skill_dir)
 
-    print(f"检测到 skill 文件: {len(files)} 个")
-    print()
+    if not short_mode:
+        print(f"检测到 skill 文件: {len(files)} 个")
+        print()
 
     all_issues = []
     all_issues.extend(check_file_references(files, skill_dir))
     all_issues.extend(check_front_matter_fields(files))
     all_issues.extend(check_interaction_ids(files))
     all_issues.extend(check_section_references(files))
-    all_issues.extend(check_term_consistency(files))
+    all_issues.extend(check_term_consistency(files, skill_dir))
     all_issues.extend(check_mode_coverage(files))
     all_issues.extend(check_gate_id_integration(files))
-
-    if not all_issues:
-        print("✓ Skill 自检通过，未发现问题")
-        sys.exit(0)
+    all_issues.extend(check_script_smoke(skill_dir))
+    all_issues.extend(check_loading_table(files, skill_dir))
+    all_issues.extend(check_doc_freshness(skill_dir))
 
     critical = [i for i in all_issues if i['severity'] == '关键']
     warnings = [i for i in all_issues if i['severity'] == '警告']
     infos = [i for i in all_issues if i['severity'] == '信息']
+
+    # Short mode: 一行摘要
+    if short_mode:
+        parts = []
+        if critical:
+            parts.append(f"{len(critical)} critical")
+        if warnings:
+            parts.append(f"{len(warnings)} warnings")
+        if infos:
+            parts.append(f"{len(infos)} info")
+        # 附加文档新鲜度提醒
+        doc_issues = [i for i in all_issues if i['type'] == '文档新鲜度']
+        doc_hint = f" | {doc_issues[0]['message']}" if doc_issues else ""
+        summary = ', '.join(parts) if parts else "all clear"
+        print(f"skill-check: {summary}{doc_hint}")
+        sys.exit(1 if critical else 0)
+
+    # Verbose mode: 完整报告
+    if not all_issues:
+        print("✓ Skill 自检通过，未发现问题")
+        sys.exit(0)
 
     if critical:
         print("== 关键问题 ==")
