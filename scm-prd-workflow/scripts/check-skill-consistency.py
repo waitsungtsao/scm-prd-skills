@@ -12,7 +12,9 @@ check-skill-consistency.py — Skill 定义文件自检工具
  7. Gate ID 集成验证
  8. 脚本可执行冒烟测试（import / node --check）
  9. Reference 加载表 ↔ references/ 目录对齐
-10. 文档新鲜度（README vs CHANGELOG 时间对比）
+10. 文档新鲜度（README + CONTRIBUTING vs CHANGELOG 时间对比）
+11. 数值断言同步（SKILL.md 中的章节数/维度数/CK范围 vs reference 实际）
+12. 模板占位符完整性（templates/ 中的 {占位符} 是否在指引中有引用）
 
 用法:
     python3 scripts/check-skill-consistency.py [skill目录]    # 完整报告
@@ -528,6 +530,151 @@ def check_mode_coverage(files):
     return issues
 
 
+def check_numeric_assertions(files):
+    """检查11: SKILL.md 数值断言 vs reference 实际内容。
+
+    SKILL.md 概述性地提及了数值（如"10章""9个维度""CK-0~CK-9"），
+    如果 reference 中的实际内容变了而 SKILL.md 没同步，就会产生逻辑断裂。
+    """
+    issues = []
+    skill = files.get('SKILL.md', '')
+    if not skill:
+        return issues
+
+    # --- 断言1: PRD 章节数 ---
+    # SKILL.md 声称"10章完整版"和"7章精简版"
+    for tpl_name, expected_ch, mode_label in [
+        ('templates/prd-template.md', 10, '完整版'),
+        ('templates/lite-prd-template.md', 7, '轻量版'),
+    ]:
+        if tpl_name not in files:
+            continue
+        # 统计模板中的章节标题数
+        actual_ch = len(re.findall(r'^##\s+第?\d+[章.]', files[tpl_name], re.MULTILINE))
+        if actual_ch == 0:
+            # 尝试 ## N. 格式
+            actual_ch = len(re.findall(r'^##\s+\d+\.', files[tpl_name], re.MULTILINE))
+        if actual_ch > 0 and actual_ch != expected_ch:
+            issues.append({
+                'severity': '警告',
+                'type': '数值断裂',
+                'message': f'SKILL.md 声称{mode_label} {expected_ch} 章，但 {tpl_name} 实际有 {actual_ch} 章',
+                'suggestion': f'同步 SKILL.md 中的章节数描述，或修正模板',
+            })
+
+    # --- 断言2: CK 检查项范围 ---
+    # SKILL.md 可能说"CK-0~CK-9"，检查 phase4-review.md 中实际最大编号
+    review = files.get('references/phase4-review.md', '')
+    if review:
+        ck_nums = [int(m.group(1)) for m in re.finditer(r'\bCK-(\d{1,2})\b', review)
+                   if not re.match(r'CK-L', m.group(0))]  # 排除 CK-L 系列
+        if ck_nums:
+            actual_max = max(ck_nums)
+            # 从 SKILL.md 提取声称的 CK 范围
+            ck_range = re.search(r'CK-0[~～]CK-(\d{1,2})', skill)
+            if ck_range:
+                claimed_max = int(ck_range.group(1))
+                if actual_max != claimed_max:
+                    issues.append({
+                        'severity': '警告',
+                        'type': '数值断裂',
+                        'message': f'SKILL.md 声称 CK-0~CK-{claimed_max}，但 phase4-review.md 实际最大为 CK-{actual_max}',
+                        'suggestion': f'同步 SKILL.md 中的 CK 范围',
+                    })
+
+    # --- 断言3: 澄清维度数 ---
+    # SKILL.md 说"9个维度"
+    clarify = files.get('references/phase2-clarify.md', '')
+    if clarify:
+        claimed_dims = re.search(r'(\d+)\s*个维度', skill)
+        if claimed_dims:
+            claimed = int(claimed_dims.group(1))
+            # 统计 phase2-clarify.md 中的维度标题 (### N. xxx)
+            actual_dims = len(re.findall(r'^###\s+\d+[\.\s]', clarify, re.MULTILINE))
+            if actual_dims > 0 and actual_dims != claimed:
+                issues.append({
+                    'severity': '警告',
+                    'type': '数值断裂',
+                    'message': f'SKILL.md 声称 {claimed} 个澄清维度，但 phase2-clarify.md 实际有 {actual_dims} 个',
+                    'suggestion': f'同步 SKILL.md 中的维度数描述',
+                })
+
+    # --- 断言4: NP 检查项范围 ---
+    write = files.get('references/phase3-write.md', '')
+    if write:
+        np_nums = [int(m.group(1)) for m in re.finditer(r'\bNP-(\d{2})\b', write)]
+        if np_nums:
+            actual_max_np = max(np_nums)
+            np_range = re.search(r'NP-01[~～](?:NP-)?(\d{2})', skill)
+            if np_range:
+                claimed_max_np = int(np_range.group(1))
+                if actual_max_np != claimed_max_np:
+                    issues.append({
+                        'severity': '信息',
+                        'type': '数值断裂',
+                        'message': f'SKILL.md 声称 NP-01~{claimed_max_np:02d}，但 phase3-write.md 实际最大为 NP-{actual_max_np:02d}',
+                        'suggestion': f'同步引用中的 NP 范围',
+                    })
+
+    return issues
+
+
+def check_template_placeholders(files):
+    """检查12: 模板占位符完整性。
+
+    扫描 templates/ 中的 {占位符}，检查是否在对应的 reference 指引中
+    有填充说明。未被引用的占位符可能导致 AI 生成时留下未替换的内容。
+    """
+    issues = []
+
+    # 占位符模式：{中文或英文，2-30字符}，排除代码块和 YAML 值
+    placeholder_pattern = re.compile(r'\{([A-Za-z\u4e00-\u9fff][\w\u4e00-\u9fff /.-]{1,30})\}')
+    # 已知的通用占位符（不需要单独填充说明）
+    KNOWN_PLACEHOLDERS = {
+        'YYYY-MM-DD', 'YYYY-MM', 'YYYY.MM.PATCH', 'date', 'name', 'version',
+        'X', 'N', 'M', 'i', 'id', 'true', 'false',
+    }
+
+    # 收集所有 reference 文件的文本（用于搜索占位符是否被引用）
+    all_refs_text = '\n'.join(
+        content for path, content in files.items()
+        if path.startswith('references/') or path == 'SKILL.md'
+    )
+
+    for tpl_path, tpl_content in files.items():
+        if not tpl_path.startswith('templates/'):
+            continue
+
+        in_code_block = False
+        for line_num, line in enumerate(tpl_content.split('\n'), 1):
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
+
+            for match in placeholder_pattern.finditer(line):
+                ph = match.group(1)
+                if ph in KNOWN_PLACEHOLDERS:
+                    continue
+                # 含中文的占位符是自描述的（如{痛点1}{量化目标}），AI 理解无障碍
+                if re.search(r'[\u4e00-\u9fff]', ph):
+                    continue
+                # 含 / 的是枚举选项（如{HTTP POST / MQ / RPC}），也是自描述的
+                if '/' in ph:
+                    continue
+                # 仅标记纯英文非通用占位符（可能是代码变量或缩写）
+                if ph not in all_refs_text:
+                    issues.append({
+                        'severity': '信息',
+                        'type': '占位符',
+                        'message': f'{tpl_path} L{line_num}: 占位符 "{{{ph}}}" 未在任何指引文件中引用',
+                        'suggestion': f'确认 AI 是否知道如何填充此占位符',
+                    })
+
+    return issues
+
+
 def check_script_smoke(skill_dir):
     """检查8: 脚本可执行冒烟测试。
 
@@ -732,6 +879,8 @@ def main():
     all_issues.extend(check_term_consistency(files, skill_dir))
     all_issues.extend(check_mode_coverage(files))
     all_issues.extend(check_gate_id_integration(files))
+    all_issues.extend(check_numeric_assertions(files))
+    all_issues.extend(check_template_placeholders(files))
     all_issues.extend(check_script_smoke(skill_dir))
     all_issues.extend(check_loading_table(files, skill_dir))
     all_issues.extend(check_doc_freshness(skill_dir))
