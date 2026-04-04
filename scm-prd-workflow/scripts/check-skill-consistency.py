@@ -822,7 +822,7 @@ def check_test_coverage(skill_dir):
             if module_name not in tested_modules:
                 rel_path = os.path.relpath(py_file, project_root)
                 issues.append({
-                    'severity': '信息',
+                    'severity': '警告',
                     'type': '测试覆盖',
                     'message': f'{rel_path} 无测试覆盖',
                     'suggestion': f'在 tests/ 中添加 test_{module_name}.py',

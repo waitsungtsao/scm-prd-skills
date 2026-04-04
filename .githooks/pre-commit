@@ -56,6 +56,13 @@ if [ -f "scm-prd-workflow/scripts/check-skill-consistency.py" ]; then
     if echo "$SHORT" | grep -q "critical"; then
         HAS_PROBLEM=1
     fi
+
+    # 存量测试覆盖：从完整报告中提取测试覆盖警告
+    COVERAGE_WARNINGS=$(echo "$FULL" | grep '测试覆盖' | head -5)
+    if [ -n "$COVERAGE_WARNINGS" ]; then
+        echo "  测试覆盖提醒:"
+        echo "$COVERAGE_WARNINGS" | while read -r line; do echo "    $line"; done
+    fi
 fi
 
 # 测试新鲜度检查：脚本改了但对应测试没改 → 提醒
@@ -64,7 +71,7 @@ if [ -n "$CHANGED_SCRIPTS" ]; then
     while IFS= read -r script; do
         [ -z "$script" ] && continue
         module=$(basename "$script" .py | tr '-' '_')
-        [ "$module" = "__init__" ] || [ "$module" = "check_skill_consistency" ] && continue
+        { [ "$module" = "__init__" ] || [ "$module" = "check_skill_consistency" ]; } && continue
         # 检查对应测试是否也在本次变更中
         if ! git diff --cached --name-only -- "tests/test_${module}*.py" | grep -q .; then
             # 测试文件存在但未修改 → 提醒（不阻止）

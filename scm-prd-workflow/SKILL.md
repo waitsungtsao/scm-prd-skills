@@ -386,11 +386,11 @@ PRD 中以 ID 标记（F-XXX/IF-XXX/G-XX/C-XX）开头的 `####` 级标题在 Wo
 - **交付精要** — 生成 `delivery-brief.md`，从 PRD 中提取关键假设、跨系统依赖、实施风险、AI 补充内容的一页摘要；如同时选中 Word 则也生成 `delivery-brief.docx`
 - Markdown 始终生成，无需勾选
 
-Word 生成引擎选择（JS 优先，Python 降级）：
+Word 生成引擎：
 
 | 条件 | 行为 |
 |------|------|
-| `docx_engine = "js"` | 使用 `NODE_PATH=$(npm root -g) node scripts/md2docx.mjs`（默认推荐，排版精度最高） |
+| `docx_engine = "js"` | 使用 `NODE_PATH=$(npm root -g) node scripts/md2docx.mjs` |
 | `docx_engine = null` | 不生成 Word，提示安装：**`npm install -g docx`** |
 
 **原则**：依赖安装始终使用全局方式（`-g`），不在项目目录创建 `node_modules`。

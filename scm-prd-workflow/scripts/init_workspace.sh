@@ -99,12 +99,9 @@ if [ -z "$PYTHON_CMD" ]; then
     echo "⚠ 未检测到 Python 3 + PyYAML 环境，泳道图将仅输出 .diagram.yaml 源文件"
 fi
 
-# 确定 Word 生成降级引擎
-if [ "$NODE_DOCX" = "false" ] && [ -n "$PYTHON_CMD" ]; then
-    if $PYTHON_CMD -c "import docx; print('ok')" >/dev/null 2>&1; then
-        DOCX_ENGINE="python"
-        echo "✓ Word 生成将使用 Python 降级方案（推荐升级到 Node.js + docx）"
-    fi
+# Word 生成引擎（仅 JS）
+if [ "$NODE_DOCX" = "false" ]; then
+    echo "⚠ Word 生成不可用。安装: npm install -g docx"
 fi
 
 # 创建配置文件（如不存在）
@@ -121,7 +118,7 @@ requirements_path: "./requirements"
 python_cmd: "${PYTHON_CMD}"
 python_available: $([ -n "$PYTHON_CMD" ] && echo "true" || echo "false")
 node_docx_available: ${NODE_DOCX}
-docx_engine: "${DOCX_ENGINE}"  # js（推荐）| python（降级）| none
+docx_engine: "${DOCX_ENGINE}"  # js | none
 EOF
     echo "✓ 创建配置文件: .scm-prd-config.yaml"
 fi
