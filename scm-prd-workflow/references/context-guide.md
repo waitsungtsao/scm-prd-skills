@@ -20,7 +20,7 @@
 | Stage D 原型 | + prototype-planning | review-guide |
 | 交付 | review-guide（约束索引提取） | 其余全部 |
 
-**轻量模式**：Stage L1 = lite-mode 已加载；Stage L2 = + diagram-patterns（如需流程图）+ writing-principles；Stage L3 = 审阅交付。
+**轻量模式**：Stage L1 = lite-mode 已加载；Stage L2 = + diagram-patterns（如需图表）；Stage L3 = 审阅交付 + Word 生成。批量模式交互流程相同，输出为一个文件含 N 个需求。
 
 **修订模式**：MC-01 前选择修订 → + revision-mode，内部使用自主模式执行。
 
@@ -36,6 +36,9 @@
 | **自检** | 脚本先行(CK-1.8/2.6a/5.4~5.9)→AI 语义(CK-0/3/4/7/9/10)。诊断自洽性，不开清单。 |
 | **审阅** | 假设总览表→批量文本反馈（不逐条 AskUserQuestion）。静默确认机制。 |
 | **交付** | 交付选项(multiSelect) → Word/交付精要/测试骨架/用户故事。约束索引更新。 |
+| **轻量 L1** | 0-1 轮对话。批量时所有需求的追问合并为一次。 |
+| **轻量 L2** | 3 章叙事（背景/系统需求/注意事项）。AI 内部叙事思考，不输出叙事规划。脚本+AI 快速自检。 |
+| **轻量 L3** | 自由文本反馈，最多 2 轮大改。Word 输出（批量注意标题层级）。 |
 
 ---
 

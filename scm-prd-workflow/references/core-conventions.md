@@ -18,7 +18,8 @@
 | SC-06 | 最终交付 | stage-bc-generate-review.md / review-guide.md | Stage C 完成后 |
 | CK-0~10 | 自检项（全模式） | review-guide.md | Stage B 自检 |
 | CK-11 | 假设质量检查（自主模式） | review-guide.md | Stage B（自主模式时追加） |
-| CK-L1~5 | 自检项（轻量） | lite-mode.md | Stage L2 |
+| SL-01 | 轻量审阅反馈 | lite-mode.md | Stage L3 |
+| SL-02 | 复杂度升级建议 | lite-mode.md | Stage L2/L3 复杂度超标时 |
 | PT-01 | 原型策略（CD-01扩展） | writing-narrative.md / stage-bc-generate-review.md | 叙事规划输出后 |
 | PT-02 | 原型设计方案迭代 | prototype-planning.md | 原型设计阶段（多轮） |
 | PT-03 | 原型结果确认 | prototype-planning.md | 原型生成后 |

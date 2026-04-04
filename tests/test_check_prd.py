@@ -37,7 +37,8 @@ class TestDetectPrdMode:
         content = _read_fixture('prd_lite.md')
         mode, req_type, *_ = check_prd.detect_prd_mode(content)
         assert mode == 'lite'
-        assert req_type == 'update'
+        # lite mode no longer requires requirement_type (defaults to 'new')
+        assert req_type == 'new'
 
     def test_lite_mode_by_chapter_count(self):
         """A PRD with <=7 chapters but no mode: lite in front matter should still be detected as lite."""

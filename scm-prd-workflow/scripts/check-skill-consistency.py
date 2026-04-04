@@ -45,7 +45,7 @@ FILE_REF_PATTERN = re.compile(
 
 # 交互ID模式
 INTERACTION_ID_PATTERN = re.compile(
-    r'\b(MC-\d{2}|MT-\d{2}|SL-\d{2}|SC-\d{2}|P4-\d{2}|CK-\d{1,2}[a-z]?|CK-L\d{1,2})\b'
+    r'\b(MC-\d{2}|MT-\d{2}|SL-\d{2}|SC-\d{2}|P4-\d{2}|CK-\d{1,2}[a-z]?)\b'
 )
 
 # 章节引用模式：§X.X 或 Ch.X§X.X
@@ -55,7 +55,7 @@ SECTION_REF_PATTERN = re.compile(r'§(\d+\.?\d*)')
 EXPECTED_FIELDS = {
     'requirement_type': [
         'templates/prd-template.md',
-        'templates/lite-prd-template.md',
+        # lite-prd-template.md 不再需要 requirement_type（轻量模式不区分 new/update）
         'templates/requirement-brief.md',
         'templates/autonomous-intake-brief.md',
     ],
