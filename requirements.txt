@@ -1,0 +1,11 @@
+# SCM PRD Skills — Python dependencies
+# Install: pip3 install -r requirements.txt
+
+# Required for testing
+pytest>=7.0
+
+# Required for diagram generation (YAML→draw.io/SVG)
+PyYAML>=6.0
+
+# Optional: SVG→PNG conversion (uncomment if needed)
+# cairosvg>=2.7

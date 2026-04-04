@@ -24,4 +24,7 @@ case "$FILE_PATH" in
     */templates/*.md)
         echo "[CHECK] 变更 template $(basename "$FILE_PATH") — 确认占位符在指引中有引用"
         ;;
+    */SKILL.md)
+        echo "[CHECK] 变更 SKILL.md — 运行 python3 scripts/check-skill-consistency.py 验证一致性"
+        ;;
 esac

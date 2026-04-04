@@ -7,6 +7,14 @@
 
 set -e
 
+# 自动配置 git hooks（如在 git 仓库中）
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if [ -d ".githooks" ] && [ "$(git config core.hooksPath)" != ".githooks" ]; then
+        git config core.hooksPath .githooks
+        echo "✓ 已配置 git hooks: .githooks/"
+    fi
+fi
+
 REQ_NAME="${1:-unnamed}"
 DATE=$(date +%Y%m%d)
 TODAY=$(date +%Y-%m-%d)
