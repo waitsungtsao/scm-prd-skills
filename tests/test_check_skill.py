@@ -145,5 +145,54 @@ class TestSelfCheck:
         all_issues.extend(check_skill.check_front_matter_fields(files))
         all_issues.extend(check_skill.check_interaction_ids(files))
         all_issues.extend(check_skill.check_section_references(files))
+        all_issues.extend(check_skill.check_numeric_assertions(files))
         critical = [i for i in all_issues if i['severity'] == '关键']
         assert len(critical) == 0, f"Real skill has critical issues: {critical}"
+
+
+# ============================================================================
+# Regression: ID duplicate + threshold drift
+# ============================================================================
+
+class TestDuplicateIds:
+    def test_detects_duplicate_ck_heading(self):
+        """Same CK-N heading in one file -> critical."""
+        files = {
+            'SKILL.md': '# Test\n',
+            'references/test.md': '### CK-8: Check A\n\ncontent\n\n### CK-8: Check B\n\ncontent\n',
+        }
+        issues = check_skill.check_numeric_assertions(files)
+        dupes = [i for i in issues if 'ID' in i.get('type', '') and 'CK-8' in i.get('message', '')]
+        assert len(dupes) > 0, "Should detect duplicate CK-8 heading"
+
+    def test_no_false_positive_on_unique_ids(self):
+        """Different CK-N headings -> no issue."""
+        files = {
+            'SKILL.md': '# Test\n',
+            'references/test.md': '### CK-8: Check A\n\n### CK-9: Check B\n',
+        }
+        issues = check_skill.check_numeric_assertions(files)
+        dupes = [i for i in issues if 'ID' in i.get('type', '')]
+        assert len(dupes) == 0
+
+
+class TestThresholdDrift:
+    def test_detects_inconsistent_threshold(self):
+        """Same keyword threshold with different values across files -> critical."""
+        files = {
+            'SKILL.md': '加权复杂度>=12 触发升级\n',
+            'references/lite-mode.md': '总分 >= 8 触发复杂度升级\n',
+        }
+        issues = check_skill.check_numeric_assertions(files)
+        drift = [i for i in issues if 'threshold' in i.get('type', '').lower() or 'drift' in i.get('type', '').lower()]
+        assert len(drift) > 0, "Should detect threshold inconsistency (12 vs 8)"
+
+    def test_no_false_positive_on_consistent_threshold(self):
+        """Same value across files -> no issue."""
+        files = {
+            'SKILL.md': '加权复杂度>=12 触发升级\n',
+            'references/lite-mode.md': '总分 >= 12 触发复杂度升级\n',
+        }
+        issues = check_skill.check_numeric_assertions(files)
+        drift = [i for i in issues if 'threshold' in i.get('type', '').lower() or 'drift' in i.get('type', '').lower()]
+        assert len(drift) == 0

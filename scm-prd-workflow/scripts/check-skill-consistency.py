@@ -600,6 +600,46 @@ def check_numeric_assertions(files):
                         'suggestion': f'同步引用中的 NP 范围',
                     })
 
+    # --- 断言5: 同文件 ID 定义重复 ---
+    id_heading_re = re.compile(r'^###\s+(CK-\d+|NP-\d+|SC-\d+|SL-\d+)', re.MULTILINE)
+    for filepath, content in files.items():
+        seen = {}
+        for m in id_heading_re.finditer(content):
+            id_str = m.group(1)
+            if id_str in seen:
+                issues.append({
+                    'severity': '关键',
+                    'type': 'ID重复定义',
+                    'message': f'{filepath} 中 {id_str} 被定义了多次',
+                    'suggestion': f'重���号或合并其中一个定义',
+                })
+            seen[id_str] = True
+
+    # --- 断言6: 跨文件数值常量漂移 ---
+    # 检测已知的跨文件数值常量。要求同一行内同时包含所有关键词，
+    # 避免误匹配（如"涉及 3+ 个系统模块"中的 3 不是阈值）。
+    threshold_re = re.compile(r'[>=]+\s*(\d+)')
+    known_thresholds = [
+        ('complexity_upgrade', ['复杂度', '升级']),
+    ]
+    for label, keywords in known_thresholds:
+        entries = set()
+        for filepath, content in files.items():
+            for line in content.split('\n'):
+                if all(kw in line for kw in keywords):
+                    m = threshold_re.search(line)
+                    if m:
+                        entries.add((filepath, int(m.group(1))))
+        values = {v for _, v in entries}
+        if len(values) > 1:
+            files_vals = ', '.join(f'{f}={v}' for f, v in sorted(entries))
+            issues.append({
+                'severity': '关键',
+                'type': 'threshold_drift',
+                'message': f'{label} threshold inconsistent: {files_vals}',
+                'suggestion': 'unify to a single value',
+            })
+
     return issues
 
 
