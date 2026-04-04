@@ -4,6 +4,43 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.11] - 2026-04-04
+
+全面 review 后的架构性重构：三层 Context 架构 + 轻量模式重构 + 交互简化。
+
+### Breaking Changes
+
+- **轻量模式 7 章→3 章**：从"缩小版 PRD（7章）"重构为"需求备忘录（3章叙事：背景/系统需求/注意事项）"。旧版 7 章轻量 PRD 的 front matter 仍可被识别，但新产出使用 3 章结构
+- **移除 CK-L1~5**：轻量模式自检改用 check-prd-consistency.py + AI 快速通读
+- **SC-01~04 合并为 SC-01**：假设审阅从逐条 AskUserQuestion 改为一次性批量文本反馈
+- **autonomous-mode.md 拆分为 3 文件**：autonomous-overview.md + stage-a-intake.md + stage-bc-generate-review.md
+- **writing-guide.md 拆分为 3 文件**：writing-principles.md + writing-narrative.md + writing-chapters.md
+
+### Added
+
+- **三层 Context 架构**：Layer 0 核心信念（9 条，含 meta 指令）+ Layer 1 行动指南（context-guide.md，阶段转换协议）+ Layer 2 按阶段加载/释放 + Layer 3 查阅即释放。Stage B 撰写峰值从 ~3000 行降至 ~1700 行（-43%）
+- **核心信念第 0 条 meta 指令**："上下文是动态管理的，遇到不确定先查行动指南，不凭印象发挥"——经无上下文 agent 测试验证理解一致性
+- **精简初始化路径**：用户输入丰富时跳过状态框和 MC-01，输出一段话全景摘要直接进入 Stage A
+- **批量轻量模式**：一个文件 N 个需求，每个需求 H2 级别含背景/系统需求/注意事项 3 小节
+- **PRD 模板参数化**：`.scm-prd-config.yaml` 支持自定义章节结构
+- **Curator session 恢复**：`.curator-session.yaml` 精确恢复 + 知识卡片 `change_history` 变更追踪
+
+### Changed
+
+- **假设审阅交互**：SC-01~04 简化为单次批量文本反馈（SC-01），用户直接回复修改意见，未提到的视为确认，无额外确认层
+- **脚本/AI 自检职责分离**：CK 项标注 `[脚本覆盖]`，硬逻辑层（脚本）和软逻辑层（AI）严格不重叠
+- **轻量模式标记**：移除 requirement_type（轻量不区分 new/update）；图表默认不画（用户要求或 AI 判断非常必要时画）
+- **轻量→自主升级映射**：从 7→10 章改为 3→10 章，用户感知为"AI 发现需要更详细的方案"
+- **diagram-patterns.md**：模式 1-6 示例外部化到 examples/，906→253 行（-72%）
+- **hook 优化**：reference 提醒仅在未注册 SKILL.md 加载表时触发，覆盖 examples/ 子目录
+
+### Removed
+
+- `autonomous-mode.md`（拆分为 autonomous-overview + stage-a-intake + stage-bc-generate-review）
+- `writing-guide.md`（拆分为 writing-principles + writing-narrative + writing-chapters）
+- CK-L1~5 独立轻量自检项
+- SC-02/SC-03/SC-04 逐条假设审阅交互
+
 ## [2026.04.10] - 2026-04-04
 
 Stage A 翻译层落地 + 语言打磨 + 一致性检查增强。
