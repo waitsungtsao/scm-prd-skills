@@ -284,7 +284,7 @@ PRD 撰写过程中，AI 可能发现 intake/clarification 中未提及但影响
 
 ## 修改与重检
 
-审阅交互（批量反馈、深入讨论、最终交付）统一由 `autonomous-mode.md` 的 SC-01/SC-05/SC-06 定义。本节仅定义与模式无关的变更记录规范。
+审阅交互（批量反馈、深入讨论、最终交付）统一由 `stage-bc-generate-review.md` 的 SC-01/SC-05/SC-06 定义。本节仅定义与模式无关的变更记录规范。
 
 ### 变更摘要输出与持久化
 
@@ -311,7 +311,7 @@ PRD 撰写过程中，AI 可能发现 intake/clarification 中未提及但影响
 
 ## 最终交付
 
-交付选项的交互由 `autonomous-mode.md` SC-06 定义。用户确认后执行：
+交付选项的交互由 `stage-bc-generate-review.md` SC-06 定义。用户确认后执行：
 1. 更新PRD版本号
 2. 按选择的格式生成文件
 3. 如选中"交付精要"→ 生成 `delivery-brief.md`（提取规则见下方）；如同时选中 Word → 也生成 `delivery-brief.docx`
@@ -488,4 +488,4 @@ review_date: YYYY-MM-DD
 
 此日志为审计留痕，记录所有假设从"AI推断"到"用户确认"的完整过程。
 
-Stage C 审阅交互（SC-01 批量反馈/SC-05 深入讨论/SC-06 交付）统一定义在 `autonomous-mode.md` Stage C 章节中，本文件不再重复。
+Stage C 审阅交互（SC-01 批量反馈/SC-05 深入讨论/SC-06 交付）统一定义在 `stage-bc-generate-review.md` Stage C 章节中，本文件不再重复。

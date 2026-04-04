@@ -78,7 +78,9 @@ TERM_VARIANTS_MANUAL = {
 
 # 两种模式文件（用于横切概念自动发现）
 MODE_FILES = [
-    'references/autonomous-mode.md',
+    'references/autonomous-overview.md',
+    'references/stage-a-intake.md',
+    'references/stage-bc-generate-review.md',
     'references/lite-mode.md',
 ]
 
@@ -584,7 +586,8 @@ def check_numeric_assertions(files):
     # --- 断言3: (已移除 — 澄清维度数检查，phase2-clarify.md 已删除，9维度降级为 AI 内部框架) ---
 
     # --- 断言4: NP 检查项范围 ---
-    write = files.get('references/writing-guide.md', '')
+    # NP 检查项现在分布在 writing-narrative.md 中
+    write = files.get('references/writing-narrative.md', '') or files.get('references/writing-guide.md', '')
     if write:
         np_nums = [int(m.group(1)) for m in re.finditer(r'\bNP-(\d{2})\b', write)]
         if np_nums:
@@ -596,7 +599,7 @@ def check_numeric_assertions(files):
                     issues.append({
                         'severity': '信息',
                         'type': '数值断裂',
-                        'message': f'SKILL.md 声称 NP-01~{claimed_max_np:02d}，但 writing-guide.md 实际最大为 NP-{actual_max_np:02d}',
+                        'message': f'SKILL.md 声称 NP-01~{claimed_max_np:02d}，但 writing-narrative.md 实际最大为 NP-{actual_max_np:02d}',
                         'suggestion': f'同步引用中的 NP 范围',
                     })
 
