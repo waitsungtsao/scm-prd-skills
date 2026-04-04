@@ -205,7 +205,7 @@
 3. **标记体系**：
    - 使用自主模式标记（`[推断]` / `[待确认]`）标注新增或修改的内容
    - 原文保留部分不添加任何新标记
-4. **生成 revision-diff.md**：使用 `templates/revision-diff-template.md`，结构化记录所有变更
+4. **生成 revision-diff.md**：使用 `templates/revision-diff-template.md`，结构化记录所有变更。对每个修改项生成 inline diff（`~~旧文本~~ → **新文本**`），让评审者直观看到精确变化
 5. **更新 prd-changelog.md**：追加本轮修订记录（格式与 `templates/prd-changelog-template.md` 一致）
 6. **更新 PRD front matter**：递增 `version`、更新 `updated` 日期
 
