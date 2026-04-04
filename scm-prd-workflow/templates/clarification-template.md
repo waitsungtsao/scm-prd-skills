@@ -1,9 +1,9 @@
 ---
 type: clarification
-mode: "{interactive|autonomous}"
+mode: "autonomous"
 requirement_id: "REQ-{YYYYMMDD}-{需求简称}"
 phase: 2
-status: "{completed|ai-drafted}"
+status: "ai-drafted"
 created: "{YYYY-MM-DD}"
 ---
 
@@ -11,8 +11,7 @@ created: "{YYYY-MM-DD}"
 
 ## 澄清方式说明
 
-<!-- 交互模式：逐维度与用户确认 -->
-<!-- 自主模式：AI基于专业判断自主推导，标记含义见下方 -->
+<!-- AI基于专业判断自主推导，标记含义见下方 -->
 
 标记含义：
 - [已确认]：用户明确确认的、知识库中已有的

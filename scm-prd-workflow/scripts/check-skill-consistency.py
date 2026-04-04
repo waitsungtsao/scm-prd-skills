@@ -76,12 +76,10 @@ TERM_VARIANTS_MANUAL = {
     '需求类型确认': ['需求分类确认'],
 }
 
-# 三种模式文件（用于横切概念自动发现）
+# 两种模式文件（用于横切概念自动发现）
 MODE_FILES = [
     'references/autonomous-mode.md',
     'references/lite-mode.md',
-    # 交互模式分散在 phase1-4，取 phase1 作为代表
-    'references/phase1-intake.md',
 ]
 
 
@@ -564,8 +562,8 @@ def check_numeric_assertions(files):
             })
 
     # --- 断言2: CK 检查项范围 ---
-    # SKILL.md 可能说"CK-0~CK-9"，检查 phase4-review.md 中实际最大编号
-    review = files.get('references/phase4-review.md', '')
+    # SKILL.md 可能说"CK-0~CK-9"，检查 review-guide.md 中实际最大编号
+    review = files.get('references/review-guide.md', '')
     if review:
         ck_nums = [int(m.group(1)) for m in re.finditer(r'\bCK-(\d{1,2})\b', review)
                    if not re.match(r'CK-L', m.group(0))]  # 排除 CK-L 系列
@@ -579,29 +577,14 @@ def check_numeric_assertions(files):
                     issues.append({
                         'severity': '警告',
                         'type': '数值断裂',
-                        'message': f'SKILL.md 声称 CK-0~CK-{claimed_max}，但 phase4-review.md 实际最大为 CK-{actual_max}',
+                        'message': f'SKILL.md 声称 CK-0~CK-{claimed_max}，但 review-guide.md 实际最大为 CK-{actual_max}',
                         'suggestion': f'同步 SKILL.md 中的 CK 范围',
                     })
 
-    # --- 断言3: 澄清维度数 ---
-    # SKILL.md 说"9个维度"
-    clarify = files.get('references/phase2-clarify.md', '')
-    if clarify:
-        claimed_dims = re.search(r'(\d+)\s*个维度', skill)
-        if claimed_dims:
-            claimed = int(claimed_dims.group(1))
-            # 统计 phase2-clarify.md 中的维度标题 (### N. xxx)
-            actual_dims = len(re.findall(r'^###\s+\d+[\.\s]', clarify, re.MULTILINE))
-            if actual_dims > 0 and actual_dims != claimed:
-                issues.append({
-                    'severity': '警告',
-                    'type': '数值断裂',
-                    'message': f'SKILL.md 声称 {claimed} 个澄清维度，但 phase2-clarify.md 实际有 {actual_dims} 个',
-                    'suggestion': f'同步 SKILL.md 中的维度数描述',
-                })
+    # --- 断言3: (已移除 — 澄清维度数检查，phase2-clarify.md 已删除，9维度降级为 AI 内部框架) ---
 
     # --- 断言4: NP 检查项范围 ---
-    write = files.get('references/phase3-write.md', '')
+    write = files.get('references/writing-guide.md', '')
     if write:
         np_nums = [int(m.group(1)) for m in re.finditer(r'\bNP-(\d{2})\b', write)]
         if np_nums:
@@ -613,7 +596,7 @@ def check_numeric_assertions(files):
                     issues.append({
                         'severity': '信息',
                         'type': '数值断裂',
-                        'message': f'SKILL.md 声称 NP-01~{claimed_max_np:02d}，但 phase3-write.md 实际最大为 NP-{actual_max_np:02d}',
+                        'message': f'SKILL.md 声称 NP-01~{claimed_max_np:02d}，但 writing-guide.md 实际最大为 NP-{actual_max_np:02d}',
                         'suggestion': f'同步引用中的 NP 范围',
                     })
 

@@ -1,6 +1,6 @@
 # 约束索引 — 自动生成，每次 PRD 交付时更新对应条目
 # 读取时机：新 PRD 启动时（SKILL.md 初始化步骤 4）
-# 写入时机：PRD 交付时（phase4-review.md 最终交付）
+# 写入时机：PRD 交付时（review-guide.md 最终交付）
 # 语义规则：每次只更新本 PRD 条目（按 prd_id 匹配），不修改其他条目
 
 - prd_id: REQ-20260315-order-split          # requirement_id（唯一键）
