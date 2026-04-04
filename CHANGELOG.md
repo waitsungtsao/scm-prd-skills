@@ -4,6 +4,65 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.9] - 2026-04-04
+
+本版本为架构性重构：移除交互模式，统一为自主模式自适应深度架构；同时完成全面 review 产出的 28 项优化（测试基础设施、行为改进、系统建设、新功能）。
+
+### Breaking Changes
+
+- **移除交互模式**：三模式（自主/交互/轻量）简化为两模式（自主/轻量）。原交互模式的价值逻辑（信息收集、合理性质疑、9维度澄清）吸收到自主模式 Stage A 的自适应深度机制中
+- **移除 `[建议]` 标记**：标记体系从三种（`[建议]`/`[推断]`/`[待确认]`）简化为两种（`[推断]`/`[待确认]`）
+- **移除 md2docx.py**：Python Word 生成引擎移除，统一使用 md2docx.mjs（Node.js）
+- **文件重命名**：`phase3-write.md` → `writing-guide.md`，`phase4-review.md` → `review-guide.md`
+- **文件删除**：`phase1-intake.md`、`phase2-clarify.md`（内容吸收到 autonomous-mode.md）
+
+### Added
+
+- **Stage A 自适应深度**（autonomous-mode.md）：鉴别诊断式信息收集——AI 形成假设、识别鉴别点、定向探测。信息充分时 1-2 轮，不足时 3-8 轮。9 维度澄清降级为 AI 内部 gap 检测框架
+- **test_check_skill.py**（8 tests）：check-skill-consistency.py 的 fixture-based 测试 + 自引用自检
+- **test_yaml2svg.py**（5 tests）：SVG 结构验证，与 test_yaml2drawio 对称
+- **test_export_diagrams.py**（3 tests）：配置检测 + 文件发现
+- **test_fix_bundle.py**（3 tests）：HTML file:// 兼容性修复验证
+- **test_md2docx.py**（2 tests）：Word 生成冒烟测试（生成 + ZIP 格式校验）
+- **fuzzy-config.yaml**：模糊词排除列表从硬编码提取到 YAML，支持按项目定制
+- **requirements.txt**：Python 依赖统一声明
+- **check-release.sh**：Claude Code PostToolUse hook，git commit 后向 AI 输出发版提醒
+- **用户故事拆分**（review-guide.md）：交付选项新增"用户故事拆分"（F-XXX → US-XXX，可导入 Jira/Linear）
+- **自检趋势分析**（review-guide.md）：跨 PRD CK 通过率统计，识别系统性弱项
+- **inline diff**（revision-diff-template.md）：修订摘要增加 `~~旧~~ → **新**` 格式，评审者直观看到变化
+- **历史知识发现扫描**（SKILL.md）：启动时扫描 `requirements/*/knowledge-discoveries.md` 提示导入
+
+### Changed
+
+- **MC-01 简化**：三选一 → 两选一（自主/轻量）
+- **NP-01~05 重构**：从检查清单改为叙事反思 guideline（3 个核心问题优先，清单降为验证）
+- **CD-01 简化**：从"逐章选详略"改为"标注 2-3 个重点章节"（AI 预选，用户增删）
+- **轻量→自主升级**：去掉面向用户的"重构"措辞，AI 静默完成格式转换
+- **轻量模式复杂度阈值**：≥8 → ≥12（供应链场景 4 个待确认太常见）
+- **环境检测静默化**：仅在缺失关键依赖时提示，不输出"环境就绪"确认信息
+- **发版提醒分级升级**：≤5 commit=信息，6-10=警告（醒目框），>10 或≥14 天=关键（阻断提交）
+- **Ch.1 版本历史表**：增加"影响章节"和"详情"列
+- **session 恢复**：增加 .session-state.yaml schema 校验，格式异常时降级
+
+### Fixed
+
+- **pre-commit bash 运算符优先级 bug**：`__init__` skip 路径未生效
+- **Check 13 测试覆盖严重级别**：从"信息"提升为"警告"
+- **pre-commit 存量检测**：增加全量测试覆盖扫描（每次提交输出未覆盖脚本）
+- **init_workspace.sh**：自动配置 `git config core.hooksPath .githooks`
+- **check-new-file.sh**：增加 SKILL.md 变更检测
+
+### Removed
+
+- `phase1-intake.md`、`phase2-clarify.md`（内容吸收到 autonomous-mode.md Stage A）
+- `md2docx.py`（Python Word 引擎，统一使用 md2docx.mjs）
+- 交互模式相关：P4-01~05 交互 ID、`[建议]` 标记体系、Phase 1-4 概念
+
+### Stats
+
+- 测试：45 → 66（+21）
+- 文件：删除 3，重命名 2，新增 7，修改 20+
+
 ## [2026.04.7] - 2026-04-04
 
 本版本为全面 review 后的系统性升级，覆盖技术健壮性、流程管控、语义检查、反冗余机制、质量基础设施五个维度。
