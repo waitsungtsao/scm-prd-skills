@@ -4,6 +4,29 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.04.10] - 2026-04-04
+
+Stage A 翻译层落地 + 语言打磨 + 一致性检查增强。
+
+### Added
+
+- **Stage A 假设检验自问协议**（autonomous-mode.md）：每轮倾听→解释→区分→优先级循环；收敛自问（开发者测试/替代方案测试/标记测试）；2 个 worked examples（快速/深度路径）；6 个供应链 red flags
+- **断言5: 同文件 ID 重复检测**（check-skill-consistency.py）：CK-N/NP-N 等标题级定义在同一文件内出现多次报 critical
+- **断言6: 跨文件阈值漂移检测**（check-skill-consistency.py）：同一概念的数值常量在不同文件中不一致报 critical
+- 4 个回归测试（ID 重复正例/反例 + 阈值漂移正例/反例），测试总数 66→70
+
+### Changed
+
+- **语言打磨**：跨文件冗余消除（9 处定义去重为指针）+ token 效率优化（5466→4877 行，-11%）
+- review-guide.md 5 个输出格式代码块外部化为 inline schema
+- prototype-planning.md ASCII 流程图替换为编号序列
+- writing-guide.md ROI 自检/简洁规范合并为表格
+
+### Fixed
+
+- **阈值不一致**：lite-mode.md 内 `≥ 8`（带空格变体）未被之前 replace_all 捕获，统一为 ≥12
+- **CK-8 编号冲突**：权限安全检查 vs 假设质量检查共用 CK-8，后者重编号为 CK-11
+
 ## [2026.04.9] - 2026-04-04
 
 本版本为架构性重构：移除交互模式，统一为自主模式自适应深度架构；同时完成全面 review 产出的 28 项优化（测试基础设施、行为改进、系统建设、新功能）。
