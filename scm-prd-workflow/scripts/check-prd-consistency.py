@@ -205,49 +205,41 @@ def check_id_consistency(content, lines, skip_prefixes=None, lenient_unreference
     return issues
 
 
+def _load_fuzzy_config():
+    """Load fuzzy word config from YAML file, fallback to defaults."""
+    config_path = os.path.join(os.path.dirname(__file__), 'fuzzy-config.yaml')
+    try:
+        import yaml
+        with open(config_path, 'r', encoding='utf-8') as f:
+            cfg = yaml.safe_load(f)
+        return (
+            [(p['word'], p['suggestion']) for p in cfg.get('fuzzy_patterns', [])],
+            [(p['word'], p['suggestion']) for p in cfg.get('redundancy_patterns', [])],
+            [(p['word'], p['suggestion']) for p in cfg.get('filler_patterns', [])],
+            cfg.get('exclusions', {}),
+        )
+    except Exception:
+        # Fallback: hardcoded defaults
+        return (
+            [('大概', '请给出具体数值'), ('可能', '请明确是否会发生'), ('一般', '请明确具体条件'),
+             ('适当', '请量化标准'), ('合理', '请量化标准'), ('及时', '请给出时间要求'),
+             ('灵活', '请明确具体规则'), ('可配置', '请说明配置项、默认值和配置入口')],
+            [('进行', '删除"进行"，直接用动词'), ('相关的', '删除"相关的"或明确具体对象'),
+             ('一定程度上', '删除或量化程度'), ('基本上', '删除"基本上"或说明例外'),
+             ('总体来说', '删除"总体来说"'), ('需要注意的是', '删除，直接陈述'),
+             ('众所周知', '删除'), ('不言而喻', '删除，明确说明')],
+            [('本章是', '删除填充句'), ('以下将详细描述', '删除填充句，直接描述'),
+             ('以下将逐一说明', '删除填充句，直接说明'), ('下面我们来看', '删除填充句')],
+            {'及时': ['及时性', '及时率'], '一般': ['一般纳税人', '一般贸易', '一般计税'],
+             '可能': ['可能性', '不可能'], '合理': ['合理性'],
+             '进行': ['进行中', '进行时'], '相关的': ['相关的系统', '相关的接口']},
+        )
+
+
 def check_fuzzy_words(content):
     """检查模糊用语。"""
     issues = []
-    fuzzy_patterns = [
-        ('大概', '请给出具体数值'),
-        ('可能', '请明确是否会发生'),
-        ('一般', '请明确具体条件'),
-        ('适当', '请量化标准'),
-        ('合理', '请量化标准'),
-        ('及时', '请给出时间要求'),
-        ('灵活', '请明确具体规则'),
-        ('可配置', '请说明配置项、默认值和配置入口'),
-    ]
-
-    # 冗余用语检测
-    redundancy_patterns = [
-        ('进行', '删除"进行"，直接用动词'),
-        ('相关的', '删除"相关的"或明确具体对象'),
-        ('一定程度上', '删除或量化程度'),
-        ('基本上', '删除"基本上"或说明例外'),
-        ('总体来说', '删除"总体来说"'),
-        ('需要注意的是', '删除，直接陈述'),
-        ('众所周知', '删除'),
-        ('不言而喻', '删除，明确说明'),
-    ]
-
-    # 填充句检测
-    filler_patterns = [
-        ('本章是', '删除填充句'),
-        ('以下将详细描述', '删除填充句，直接描述'),
-        ('以下将逐一说明', '删除填充句，直接说明'),
-        ('下面我们来看', '删除填充句'),
-    ]
-
-    # 排除词表：包含模糊词但语义明确的合法术语
-    exclusions = {
-        '及时': ['及时性', '及时率'],
-        '一般': ['一般纳税人', '一般贸易', '一般计税'],
-        '可能': ['可能性', '不可能'],
-        '合理': ['合理性'],
-        '进行': ['进行中', '进行时'],
-        '相关的': ['相关的系统', '相关的接口'],
-    }
+    fuzzy_patterns, redundancy_patterns, filler_patterns, exclusions = _load_fuzzy_config()
 
     lines = content.split('\n')
     for i, line in enumerate(lines, 1):

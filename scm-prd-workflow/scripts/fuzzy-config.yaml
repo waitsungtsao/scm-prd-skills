@@ -1,0 +1,60 @@
+# 模糊用语检测配置
+# 被 check-prd-consistency.py 读取。可按项目定制。
+
+# 模糊词：出现即告警
+fuzzy_patterns:
+  - word: "大概"
+    suggestion: "请给出具体数值"
+  - word: "可能"
+    suggestion: "请明确是否会发生"
+  - word: "一般"
+    suggestion: "请明确具体条件"
+  - word: "适当"
+    suggestion: "请量化标准"
+  - word: "合理"
+    suggestion: "请量化标准"
+  - word: "及时"
+    suggestion: "请给出时间要求"
+  - word: "灵活"
+    suggestion: "请明确具体规则"
+  - word: "可配置"
+    suggestion: "请说明配置项、默认值和配置入口"
+
+# 冗余用语
+redundancy_patterns:
+  - word: "进行"
+    suggestion: "删除"进行"，直接用动词"
+  - word: "相关的"
+    suggestion: "删除"相关的"或明确具体对象"
+  - word: "一定程度上"
+    suggestion: "删除或量化程度"
+  - word: "基本上"
+    suggestion: "删除"基本上"或说明例外"
+  - word: "总体来说"
+    suggestion: "删除"总体来说""
+  - word: "需要注意的是"
+    suggestion: "删除，直接陈述"
+  - word: "众所周知"
+    suggestion: "删除"
+  - word: "不言而喻"
+    suggestion: "删除，明确说明"
+
+# 填充句
+filler_patterns:
+  - word: "本章是"
+    suggestion: "删除填充句"
+  - word: "以下将详细描述"
+    suggestion: "删除填充句，直接描述"
+  - word: "以下将逐一说明"
+    suggestion: "删除填充句，直接说明"
+  - word: "下面我们来看"
+    suggestion: "删除填充句"
+
+# 排除词表：包含模糊词但语义明确的合法术语
+exclusions:
+  "及时": ["及时性", "及时率"]
+  "一般": ["一般纳税人", "一般贸易", "一般计税"]
+  "可能": ["可能性", "不可能"]
+  "合理": ["合理性"]
+  "进行": ["进行中", "进行时"]
+  "相关的": ["相关的系统", "相关的接口"]
