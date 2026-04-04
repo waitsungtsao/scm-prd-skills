@@ -144,15 +144,23 @@ if [ -n "$NEW_SCRIPTS" ]; then
 fi
 
 # 新增文档提醒（非阻止，仅提示）
+# 新增文档提醒：reference 验证是否已在 SKILL.md 加载表注册
 NEW_DOCS=$(git diff --cached --name-only --diff-filter=A -- \
-    'scm-*/references/*.md' 'scm-*/templates/*.md')
+    'scm-*/references/*.md' 'scm-*/references/**/*.md' 'scm-*/templates/*.md')
 if [ -n "$NEW_DOCS" ]; then
     while IFS= read -r f; do
         [ -z "$f" ] && continue
         case "$f" in
-            */references/*.md)
-                echo "  新增 reference: $f → 检查 SKILL.md 加载表"
-                echo "  - $f → 检查加载表" >> "$REPORT"
+            */references/*.md|*/references/**/*.md)
+                fname=$(basename "$f")
+                # 检查文件名是否已在 SKILL.md 加载表中注册
+                skill_dir=$(echo "$f" | sed 's|/references/.*||')
+                if [ -f "$skill_dir/SKILL.md" ] && grep -q "$fname" "$skill_dir/SKILL.md"; then
+                    : # 已注册，不提醒
+                else
+                    echo "  新增 reference: $f → 未在 SKILL.md 加载表中注册"
+                    echo "  - $f → 未注册" >> "$REPORT"
+                fi
                 ;;
             */templates/*.md)
                 echo "  新增 template: $f → 检查占位符"

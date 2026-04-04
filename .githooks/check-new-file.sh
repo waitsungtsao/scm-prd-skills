@@ -18,8 +18,14 @@ case "$FILE_PATH" in
             echo "[CHECK] 修改脚本 $(basename "$FILE_PATH") — 检查 tests/test_${module}.py 是否仍覆盖变更，不覆盖则更新"
         fi
         ;;
-    */references/*.md)
-        echo "[CHECK] 变更 reference $(basename "$FILE_PATH") — 确认 SKILL.md 加载表已注册此文件"
+    */references/*.md|*/references/**/*.md)
+        fname=$(basename "$FILE_PATH")
+        skill_dir=$(echo "$FILE_PATH" | sed 's|/references/.*||')
+        if [ -f "$skill_dir/SKILL.md" ] && grep -q "$fname" "$skill_dir/SKILL.md"; then
+            : # 已注册，不提醒
+        else
+            echo "[CHECK] 变更 reference $fname — 未在 SKILL.md 加载表中注册，确认是否需要添加"
+        fi
         ;;
     */templates/*.md)
         echo "[CHECK] 变更 template $(basename "$FILE_PATH") — 确认占位符在指引中有引用"
