@@ -23,7 +23,16 @@ if [ -z "$SKILL_FILES" ]; then
     if [ -f "scm-prd-workflow/scripts/check-skill-consistency.py" ]; then
         RELEASE_CHECK=$(python3 scm-prd-workflow/scripts/check-skill-consistency.py scm-prd-workflow --short 2>&1)
         if echo "$RELEASE_CHECK" | grep -q "建议发版"; then
-            echo "$RELEASE_CHECK"
+            echo ""
+            echo "  ━━━ 发版提醒 ━━━"
+            echo "  $RELEASE_CHECK"
+            echo "  ━━━━━━━━━━━━━━━━"
+            # 关键级别阻断提交
+            if echo "$RELEASE_CHECK" | grep -q "critical"; then
+                echo ""
+                echo "  发版已严重滞后，提交被阻止。请先发版或使用 git commit --no-verify 跳过。"
+                exit 1
+            fi
         fi
     fi
     exit 0
@@ -55,6 +64,14 @@ if [ -f "scm-prd-workflow/scripts/check-skill-consistency.py" ]; then
 
     if echo "$SHORT" | grep -q "critical"; then
         HAS_PROBLEM=1
+    fi
+
+    # 发版提醒（醒目展示）
+    if echo "$SHORT" | grep -q "建议发版"; then
+        echo ""
+        echo "  ━━━ 发版提醒 ━━━"
+        echo "  $(echo "$SHORT" | grep -o '自 v[^ ]* .*')"
+        echo "  ━━━━━━━━━━━━━━━━"
     fi
 
     # 存量测试覆盖：从完整报告中提取测试覆盖警告

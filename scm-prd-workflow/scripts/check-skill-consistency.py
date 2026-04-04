@@ -909,7 +909,7 @@ def check_release_readiness(skill_dir):
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return issues  # git 不可用，跳过
 
-    # --- 发版信号判断 ---
+    # --- 发版信号判断（分级升级） ---
     reasons = []
 
     if len(feat_commits) >= 3:
@@ -930,11 +930,23 @@ def check_release_readiness(skill_dir):
             commit_breakdown.append(f'{len(refactor_commits)} refactor')
         breakdown = ', '.join(commit_breakdown)
 
+        # 分级：根据堆积程度升级严重性
+        n = len(commits)
+        if n > 10 or days_since_tag >= 14:
+            severity = '关键'  # 阻断提交
+            suggestion = f'发版已严重滞后（{n} 个未发布 commit）。请先发版再继续开发。发版前同步更新 CHANGELOG + README + CLAUDE.md'
+        elif n >= 6 or days_since_tag >= 7:
+            severity = '警告'
+            suggestion = f'建议尽快发版。发版前同步更新 CHANGELOG + README + CLAUDE.md'
+        else:
+            severity = '信息'
+            suggestion = f'可考虑发版。发版前同步更新 CHANGELOG + README + CLAUDE.md'
+
         issues.append({
-            'severity': '警告',
+            'severity': severity,
             'type': '建议发版',
-            'message': f'自 {tag} 以来有 {len(commits)} 个未发布 commit（{breakdown}）— {summary}',
-            'suggestion': f'考虑发版。发版前同步更新 CHANGELOG + README + CONTRIBUTING + CLAUDE.md',
+            'message': f'自 {tag} 以来有 {n} 个未发布 commit（{breakdown}）— {summary}',
+            'suggestion': suggestion,
         })
 
         # 子检查：文档是否比最新 tag 更旧
