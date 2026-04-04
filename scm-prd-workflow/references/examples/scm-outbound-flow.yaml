@@ -1,0 +1,130 @@
+# 出库主流程 — YAML → draw.io 示例
+# 5 泳道（OMS→波次→拣货→复核打包→TMS），17 节点
+# 用于 PRD 中涉及出库流程时参考
+
+diagram:
+  title: "出库主流程"
+  type: swimlane
+
+lanes:
+  - id: oms
+    label: "OMS 订单系统"
+    color: blue
+  - id: wms_wave
+    label: "WMS-波次"
+    color: green
+  - id: wms_pick
+    label: "WMS-拣货"
+    color: green
+  - id: wms_check
+    label: "WMS-复核打包"
+    color: green
+  - id: tms
+    label: "TMS 运输系统"
+    color: orange
+
+nodes:
+  - id: o1
+    label: "出库指令下发"
+    type: process
+    lane: oms
+  - id: w1
+    label: "接收出库单"
+    type: process
+    lane: wms_wave
+  - id: w2
+    label: "波次规划"
+    type: process
+    lane: wms_wave
+  - id: w3
+    label: "生成拣货任务"
+    type: process
+    lane: wms_wave
+  - id: p1
+    label: "拣货作业"
+    type: process
+    lane: wms_pick
+  - id: p2
+    label: "拣货结果"
+    type: decision
+    lane: wms_pick
+  - id: p3
+    label: "拣货完成"
+    type: process
+    lane: wms_pick
+  - id: p4
+    label: "缺货处理"
+    type: process
+    lane: wms_pick
+    style: error
+  - id: r1
+    label: "复核"
+    type: process
+    lane: wms_check
+  - id: r2
+    label: "复核结果"
+    type: decision
+    lane: wms_check
+  - id: r3
+    label: "打包"
+    type: process
+    lane: wms_check
+  - id: r4
+    label: "返回拣货"
+    type: process
+    lane: wms_check
+    style: error
+  - id: r5
+    label: "称重/贴面单"
+    type: process
+    lane: wms_check
+  - id: h1
+    label: "集货/装车"
+    type: process
+    lane: wms_check
+  - id: h2
+    label: "交接签收"
+    type: process
+    lane: wms_check
+  - id: t1
+    label: "揽收确认"
+    type: process
+    lane: tms
+
+edges:
+  - from: o1
+    to: w1
+  - from: w1
+    to: w2
+  - from: w2
+    to: w3
+  - from: w3
+    to: p1
+  - from: p1
+    to: p2
+  - from: p2
+    to: p3
+    label: "正常"
+  - from: p2
+    to: p4
+    label: "缺货"
+    style: error
+  - from: p3
+    to: r1
+  - from: r1
+    to: r2
+  - from: r2
+    to: r3
+    label: "一致"
+  - from: r2
+    to: r4
+    label: "差异"
+    style: error
+  - from: r3
+    to: r5
+  - from: r5
+    to: h1
+  - from: h1
+    to: h2
+  - from: h2
+    to: t1

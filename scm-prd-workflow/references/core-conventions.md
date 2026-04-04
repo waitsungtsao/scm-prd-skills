@@ -13,7 +13,9 @@
 | CD-01 | 章节详略选择 | writing-guide.md / autonomous-mode.md / lite-mode.md | 叙事规划输出后、撰写前（全模式） |
 | SL-01 | 轻量审阅反馈 | lite-mode.md | Stage L3 |
 | SL-02 | 复杂度升级建议 | lite-mode.md | Stage L2/L3 复杂度超标时 |
-| SC-01~06 | 审阅交互 | autonomous-mode.md | Stage C |
+| SC-01 | 批量审阅反馈 | autonomous-mode.md | Stage C（假设总览+PRD呈现后） |
+| SC-05 | 局部深入讨论 | autonomous-mode.md | Stage C（维度系统性偏差时） |
+| SC-06 | 最终交付 | autonomous-mode.md / review-guide.md | Stage C 完成后 |
 | CK-0~10 | 自检项（全模式） | review-guide.md | Stage B 自检 |
 | CK-11 | 假设质量检查（自主模式） | review-guide.md | Stage B（自主模式时追加） |
 | CK-L1~5 | 自检项（轻量） | lite-mode.md | Stage L2 |

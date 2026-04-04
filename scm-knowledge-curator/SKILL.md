@@ -40,9 +40,34 @@ description: "供应链领域知识库的构建与维护工具。当用户需要
 mkdir -p knowledge-base
 ```
 
+#### Session 状态持久化
+
+每次步骤转换或知识卡片更新时，在 `knowledge-base/` 下写入 `.curator-session.yaml`：
+
+```yaml
+step: 3               # 当前步骤编号 (0-6)
+domain: "wms"          # 当前梳理的领域
+modules_completed:     # 已完成的访谈模块
+  - "核心流程"
+  - "业务模式"
+modules_pending:       # 未完成的访谈模块
+  - "异常处理"
+  - "系统集成"
+cards_updated:         # 本次会话已更新的卡片
+  - "domain-wms.md"
+last_updated: "2026-04-04T16:30:00"
+```
+
+写入时机：步骤转换、卡片生成/更新、用户确认后。采用乐观写入（先写 .tmp 再 rename）。
+删除时机：Step 6 质量检查完成后删除。
+
 #### 恢复检测
 
-读取 `_index.md` 后，检查每张领域知识卡片的完整度字段：
+**优先使用 `.curator-session.yaml`**（精确恢复）：
+- 如存在且格式完整 → 获取精确的步骤/领域/已完成模块，告知用户恢复位置，询问是否继续
+- 如不存在或格式异常 → 降级到基于完整度字段的粗略恢复（下方）
+
+**降级恢复**（基于 `_index.md` 完整度字段）：
 - 如果存在任何完整度 < 100% 的领域卡片，列出这些未完成的领域及其当前完整度
 - 向用户询问："发现以下领域知识卡片尚未完成：{列表}。是否继续补充某个领域，还是开始新的梳理？"
 - 如用户选择继续某个未完成领域，读取该领域卡片和 `_index.md` 中"已知空白"部分，定位上次中断的位置，从未完成的模块继续访谈
@@ -141,6 +166,32 @@ mkdir -p knowledge-base
 - 跨领域的集成点单独一个文件（integration-points.md）
 - 通用业务规则单独一个文件（business-rules.md）
 - 术语表使用YAML格式（glossary.yaml），方便程序化引用
+
+#### 知识卡片变更追踪
+
+每次更新知识卡片时，在 front matter 中记录变更摘要，实现轻量级 diff 追踪：
+
+```yaml
+---
+domain: WMS
+last_updated: 2026-04-04
+last_change_summary: "补充了逆向流程（退货入库）的质检分流规则和状态机"
+change_history:
+  - date: 2026-04-04
+    summary: "补充逆向流程质检分流规则"
+  - date: 2026-03-20
+    summary: "初始创建，覆盖正向出库流程"
+source: interview
+confirmed: partial
+completeness: 75
+---
+```
+
+**更新规则**：
+- 每次修改卡片内容时，更新 `last_updated` 和 `last_change_summary`
+- 将旧的 `last_change_summary` 追加到 `change_history` 列表头部
+- `change_history` 保留最近 10 条记录（超出则丢弃最早的）
+- 这让 PRD Workflow 在启动时能快速了解"知识库自上次 PRD 后改了什么"
 
 ### Step 5: 知识库索引更新
 

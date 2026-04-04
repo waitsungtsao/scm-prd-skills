@@ -2,6 +2,10 @@
 domain: {DOMAIN_CODE}
 domain_cn: {领域中文名}
 last_updated: {YYYY-MM-DD}
+last_change_summary: "{本次变更的一句话摘要}"
+change_history:
+  - date: {YYYY-MM-DD}
+    summary: "{变更摘要}"
 sources:
   # type 枚举: interview(口述), document(文档), inference(推测), observation(观察)
   - type: {interview|document|inference|observation}

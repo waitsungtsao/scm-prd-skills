@@ -1,0 +1,124 @@
+# 入库主流程 — YAML → draw.io 示例
+# 4 泳道���供应商→收货→质检→上架），14 节点
+# 用于 PRD 中涉及入库流程时参考
+
+diagram:
+  title: "入库主流程"
+  type: swimlane
+
+lanes:
+  - id: supplier
+    label: "供应商"
+  - id: wms_recv
+    label: "WMS-收货"
+    color: green
+  - id: wms_qc
+    label: "WMS-质检"
+    color: green
+  - id: wms_putaway
+    label: "WMS-上架"
+    color: green
+
+nodes:
+  - id: s1
+    label: "发送ASN/送货"
+    type: process
+    lane: supplier
+  - id: s2
+    label: "到达仓库"
+    type: process
+    lane: supplier
+  - id: w1
+    label: "核对单据"
+    type: decision
+    lane: wms_recv
+  - id: w2
+    label: "系统收货"
+    type: process
+    lane: wms_recv
+  - id: w3
+    label: "差异登记"
+    type: process
+    lane: wms_recv
+    style: error
+  - id: w4
+    label: "差异处理"
+    type: decision
+    lane: wms_recv
+  - id: q1
+    label: "需要质检?"
+    type: decision
+    lane: wms_qc
+  - id: q2
+    label: "执行质检"
+    type: process
+    lane: wms_qc
+  - id: q3
+    label: "质检通过"
+    type: process
+    lane: wms_qc
+  - id: q4
+    label: "不良品处理"
+    type: process
+    lane: wms_qc
+    style: error
+  - id: p1
+    label: "生成上架任务"
+    type: process
+    lane: wms_putaway
+  - id: p2
+    label: "系统推荐库位"
+    type: process
+    lane: wms_putaway
+  - id: p3
+    label: "执行上架"
+    type: process
+    lane: wms_putaway
+  - id: p4
+    label: "PDA确认"
+    type: process
+    lane: wms_putaway
+
+edges:
+  - from: s1
+    to: s2
+  - from: s2
+    to: w1
+  - from: w1
+    to: w2
+    label: "一致"
+  - from: w1
+    to: w3
+    label: "差异"
+    style: error
+  - from: w3
+    to: w4
+  - from: w4
+    to: s1
+    label: "补发"
+  - from: w4
+    to: w2
+    label: "按实收"
+  - from: w2
+    to: q1
+  - from: q1
+    to: q2
+    label: "是"
+  - from: q1
+    to: q3
+    label: "否"
+  - from: q2
+    to: q3
+    label: "合格"
+  - from: q2
+    to: q4
+    label: "不合格"
+    style: error
+  - from: q3
+    to: p1
+  - from: p1
+    to: p2
+  - from: p2
+    to: p3
+  - from: p3
+    to: p4
