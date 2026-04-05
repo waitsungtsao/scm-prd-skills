@@ -30,8 +30,8 @@
 | NP-01~05 | 叙事反模式自检 | writing-narrative.md | 叙事规划草稿完成后、CD-01 前（静默） |
 | NP-06~08 | 撰写前结构预校验 | writing-narrative.md | NP-06 在 CD-01 前；NP-07~08 在 CD-01 后、撰写前 |
 | NP-09~11 | 方案评估验证 | writing-narrative.md | 方案评估后、CD-01 前（因果链/方案逻辑/约束消化） |
-| DG-01 | draw.io 生成降级 | diagram-patterns.md | python 不可用时首次遇到 YAML 图表 |
-| MT-01 | 需求类型推断通知 | SKILL.md | Stage A / Stage L1（AI 自动推断后告知） |
+| DG-01 | draw.io 生成降级 | env-setup.md / diagram-patterns.md | ENV-01 列出影响 → Stage B 撰写前二次确认 |
+| MT-01 | 需求类型知情选择 | SKILL.md | Stage A / Stage L1（展示全部选项+后果+AI判断理由） |
 | CK-RV | 修订增量自检 | revision-mode.md | Stage RV-D |
 | CK-10 | 叙事连贯性评审 | review-guide.md | CK-0~9 之后（5项整体评审） |
 

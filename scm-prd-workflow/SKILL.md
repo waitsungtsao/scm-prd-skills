@@ -28,21 +28,13 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写、
 7. **硬软分离**：脚本做确定性校验（ID 引用/模糊词/章节编号），AI 做语义判断（叙事连贯/业务规则完整/多角色审查），两者不重叠。
 8. **诊断式检查**：检查是验证已有内容的自洽性，不是开清单要求新增内容。修复是改写使逻辑通顺，不是打补丁加段落。
 
-### 禁止事项
-- 禁止虚构系统现有功能或业务规则
-- 禁止将不确定内容作为已确认事实呈现（必须使用标记）
-- 禁止使用模糊表述作为最终交付内容（如"可配置""灵活""适当"）
-- 禁止对用户的需求无底线附和——发现问题必须指出
-- 禁止在轻量模式下对用户未提及的细节逻辑进行追问——未涉及的方面不生成独立章节，由PRD尾部统一说明
-
-### 必须事项
-- 每个阶段完成后产出标准化文件
-- 每个阶段开始前，对上游产出文件做基本格式检查（front matter 必填字段、章节标题存在性）
-- 不确定的内容必须使用 `[推断]` 或 `[待确认]` 标记；所有AI生成内容必须按标记体系标注
-- 流程图必须与文字描述保持一致
-- 修改PRD后必须更新 prd-changelog.md（记录语义级变更和影响传播），然后重新运行自检
-- PRD 过程中发现的新业务知识记录到 `knowledge-discoveries.md`
-- 所有产出文件默认使用**简体中文**撰写；术语定义中英文缩写保留原文，附中文释义
+### 过程纪律
+- 每阶段产出标准化文件；开始前对上游产出做基本格式检查
+- 不确定内容必须按标记体系标注；流程图必须与文字描述一致
+- 修改 PRD 后更新 `prd-changelog.md`，然后重新运行自检
+- 新发现的业务知识记录到 `knowledge-discoveries.md`
+- 轻量模式下，用户未提及的方面不生成独立章节，由 PRD 尾部统一说明
+- 产出文件默认**简体中文**；术语中英文缩写保留原文附中文释义
 
 ## 工作目录约定
 
@@ -53,36 +45,14 @@ description: "供应链系统PRD全流程生产工具。当用户需要编写、
 
 ### 三层 Context 架构
 
-`references/` 文件按三层架构管理，**按阶段加载和释放**，不要一次性读完全部文件。
+`references/` 文件按三层架构管理，**按阶段读取**，不要一次性读完全部文件。
 
-**Layer 0（核心信念）**：上方"核心信念"段落，始终有效。
-**Layer 1（行动指南）**：`context-guide.md`——阶段→加载清单、核心要求速查、退回规则、阶段转换协议。**初始化时读取，全程保留。**
-**Layer 2（阶段 references）**：详细操作指引，按阶段加载/释放。
-**Layer 3（示例与模板）**：`examples/` 和 `templates/` 下的文件，生成具体产出时按需读取，用完即释放。
+- **Layer 0（核心信念）**：上方"核心信念"段落，始终有效
+- **Layer 1（行动指南）**：`context-guide.md` + `core-conventions.md` + `progress-display.md`，**初始化时读取，全程有效**
+- **Layer 2（阶段参考）**：详细操作指引，进入对应阶段时读取
+- **Layer 3（示例与模板）**：`examples/` 和 `templates/`，生成具体产出时按需查阅
 
-**进入新阶段时**：先查 `context-guide.md` 确认本阶段需要加载的文件，执行阶段转换协议（详见 `context-guide.md`）。
-
-| Layer | 文件 | 读取时机 | 释放时机 |
-|-------|------|---------|---------|
-| 1 | `context-guide.md` | **初始化时** | **永不** |
-| 1 | `core-conventions.md` | 初始化时 | 永不 |
-| 1 | `progress-display.md` | 初始化时 | 永不 |
-| 2 | `env-setup.md` | 初始化步骤 5-7 | 初始化完成后 |
-| 2 | `autonomous-overview.md` | 自主模式确认后 | 永不（短） |
-| 2 | `stage-a-intake.md` | Stage A 进入 | Stage A 完成 |
-| 2 | `writing-principles.md` | Stage B 叙事规划 | Stage C 进入 |
-| 2 | `writing-narrative.md` | Stage B 叙事规划 | CD-01 确认后 |
-| 2 | `writing-chapters.md` | Stage B 撰写开始 | 自检开始后 |
-| 2 | `diagram-patterns.md` | 图表规划时 | 图表完成后 |
-| 2 | `review-guide.md` | Stage B 自检 | 交付后 |
-| 2 | `stage-bc-generate-review.md` | Stage B 开始 | 交付后 |
-| 2 | `lite-mode.md` | 轻量模式确认后 | 所有模式 |
-| 2 | `revision-mode.md` | 修订模式进入后 | 修订 |
-| 2 | `prototype-planning.md` | 原型阶段 | 原型完成后 |
-| 2 | `diagram-yaml-schema.md` | YAML 泳道图生成时 | 图表完成后 |
-| 3 | `examples/*.yaml` | 生成特定图表时 | 查阅即释放 |
-| 3 | `examples/stage-a-worked-examples.md` | Stage A 深度路径 | 查阅即释放 |
-| 3 | `templates/*.md` | 生成对应产出时 | 查阅即释放 |
+**进入新阶段时**：查阅 `context-guide.md` 的"阶段→核心参考"表确认本阶段需读取的文件，执行阶段转换协议。完整的文件清单和读取时机详见 `context-guide.md`。
 
 在创建任何产出文件前，先确认当前工作目录是用户的项目根目录，而非 `.claude/skills/` 下的技能目录。
 
@@ -254,18 +224,20 @@ Skill被触发后、正式进入任何PRD阶段之前，插入**一次** `AskUse
 - **自主模式**：10章完整PRD，AI自适应收集深度后一次性生成，集中审阅。适合从简单功能到复杂需求的全光谱场景。例如：新增审批流程、增加库存预警、设计全新退货流程
 - **轻量模式**：3章叙事PRD（背景/系统需求/注意事项），0-2轮对话，支持批量。适合简单需求/常规改动。例如：改字段默认值、加筛选条件、调整审批节点
 
-**需求类型自动推断**：
+**需求类型推断（MT-01）**：
 
-`requirement_type` 不再在 MC-01 中询问用户，改为 AI 在 Stage A / Stage L1 中根据用户描述自动推断：
+AI 在 Stage A / Stage L1 中根据用户描述推断 `requirement_type`，**嵌入自然对话中告知用户全部选项及其对 PRD 结构的影响**：
 
-| 判断依据 | requirement_type |
-|---------|-----------------|
-| 用户描述涉及"新增""从零""全新""上线"等关键词，或描述中无已有系统/功能的引用 | `new` |
-| 用户描述涉及"修改""调整""优化""增加字段""改规则"等关键词，或引用了已有功能名称 | `update` |
-| 无法明确判断，或兼有新增和修改 | `mixed` |
+> 需求通常分三种类型，直接影响 PRD 的章节结构：
+> - **新建**（`new`）：从零设计，PRD 聚焦完整方案，不包含变更影响分析
+> - **更新**（`update`）：改造现有功能，PRD 会包含变更声明（C-XX）、向前兼容评估、影响范围分析
+> - **混合**（`mixed`）：部分新建部分改造，两者都覆盖
+>
+> 从您{具体依据}来看，偏向{类型}。您怎么看？
 
-推断结果写入 `intake.md` 的 `requirement_type` 字段，并在录入阶段告知用户："根据您的描述，本次需求判断为 {类型}。如有误请指出。"
+**关键**：必须让用户看到全部选项和每个选项的实际后果，而非只给一个结论让用户"纠正"。用户不了解类型对 PRD 结构的影响，仅给结论是假选择。
 
+推断结果写入 `intake.md` 的 `requirement_type` 字段。各类型影响：
 - `new`：跳过变更范围声明，所有章节正常生成
 - `update`：激活变更范围声明和按需生成章节机制
 - `mixed`：激活变更范围声明和按需生成章节机制
@@ -419,7 +391,11 @@ PRD 中以 ID 标记（F-XXX/IF-XXX/G-XX/C-XX）开头的 `####` 级标题在 Wo
 
 ### draw.io 生成降级策略（DG-01）
 
-当 `python_available = false` 时首次遇到需要 YAML → draw.io 的图表时触发。完整降级流程（安装引导、降级选择、降级后行为、yaml2drawio.py 运行时错误处理）详见 `references/diagram-patterns.md` "draw.io 生成降级策略"章节。核心原则：**绝不因图表问题阻断 PRD 输出**。
+**两阶段预期管理**：
+1. **ENV-01（启动时）**：环境检测发现 Python 不可用时，在状态摘要中列出影响（"复杂泳道图将降级为 Mermaid"），让用户有机会在 Stage A 对话期间提前安装
+2. **Stage B 叙事规划（撰写前）**：如叙事规划包含需要 Python 的图表且仍不可用，再次提醒并提供选项（安装/降级为 Mermaid/跳过）
+
+完整降级流程详见 `references/env-setup.md` "缺失依赖的影响说明"和 `references/diagram-patterns.md` "draw.io 生成降级策略"章节。核心原则：**绝不因图表问题阻断 PRD 输出**。
 
 ### 图表质量校验
 
@@ -477,57 +453,16 @@ Word 生成引擎：
 
 **执行顺序**：先运行脚本（结果直接写入 review-report.md），再执行 AI 自检（仅检查脚本无法覆盖的语义项，不重复脚本已覆盖的结构性检查）。读取 `references/review-guide.md` 获取完整检查清单。修改后重检直到无关键问题，每轮修改持久化到 `prd-changelog.md`。
 
-## 原型集成
+## 原型集成（可选）
 
-PRD 完成后，可选生成可交互原型（React + shadcn/ui 单文件 HTML），作为 PRD 的补充表达手段。原型不是必选项，更不能成为流程阻碍。
+PRD 完成后可选生成可交互原型（React + shadcn/ui 单文件 HTML），作为 PRD 的补充表达手段。
 
-### 原型策略（嵌入叙事规划）
+- **触发**：叙事规划阶段评估触发条件（T1-T5），命中 ≥2 条时在 CD-01 中建议启用
+- **流程**：Brief（随叙事规划）→ 设计方案（PRD 确认后，多轮迭代 PT-02）→ CK-PT → 生成 React 代码并打包
+- **产出**：`prototype-design.md` + `prototype/bundle.html`（零外部依赖，双击可开）
+- **核心原则**：只做 Delta、禁止臆想（每个元素追溯到 F-XXX/C-XX）、B2B 系统质感、零动画
 
-在叙事规划输出时，紧跟"图表策略"之后输出"原型策略"段落。
-
-原型触发条件（T1-T5）、反触发、精细度详见 `references/prototype-planning.md`。命中 ≥2 条触发条件时建议生成原型。
-
-### CD-01 原型选项（PT-01）
-
-在 CD-01 章节详略选择的 multiSelect 中追加：
-
-> - **原型演示**：为关键交互生成可点击原型（AI 建议：{是/否}，理由：{命中的触发条件}）
-
-用户选中此项即启用原型流程；未选中则跳过。
-
-### 原型设计与生成阶段
-
-**时机**：PRD 审阅确认后（自主模式 Stage C 后、轻量模式 Stage L3 后）。
-
-**两步流程**：
-
-| 步骤 | 时机 | 产出 | 用户参与 |
-|------|------|------|---------|
-| **Brief** | 随叙事规划一起（PRD 写前） | 嵌入叙事规划 | CD-01 确认方向 |
-| **设计方案** | PRD 确认后（独立阶段） | `prototype-design.md` | 多轮迭代打磨 |
-
-Brief 阶段 PRD 尚未撰写，只能做方向性判断（做哪些屏幕、什么精细度）。设计方案阶段 PRD 已确认，可从中提取完整细节，构建组件结构、交互链、状态映射，并与用户迭代打磨。
-
-**设计方案阶段流程**：
-1. 读取 `references/prototype-planning.md` 获取详细操作指引
-2. 使用 `templates/prototype-design-template.md`，从 PRD 提取数据后生成 `prototype-design.md`
-3. 用户审阅设计方案，多轮迭代（PT-02）
-4. 执行 CK-PT 检查
-5. 调用 web-artifacts-builder skill 生成 React 代码并打包
-6. 用户体验原型，可选回到设计方案调整或直接微调（PT-03）
-7. 打包后运行 `node scripts/fix-bundle-fileproto.mjs` 检查 `file://` 兼容性（移除残留的 `type="module"`）
-8. 输出到 `requirements/REQ-{date}-{name}/prototype/bundle.html`（零外部依赖，双击即可打开）
-
-### 原型自检（CK-PT）
-
-原型自检（CK-PT）详见 `references/review-guide.md`。
-
-### 核心原则
-
-- **只做 Delta**：只原型化变更点，未变更区域用灰色占位 + "不在本次范围" 标注
-- **禁止臆想**：原型中每个可交互元素必须追溯到 PRD 的 F-XXX/C-XX
-- **运营系统质感**：B2B 内部系统风格，高信息密度，克制配色，中文标签
-- **零动画**：即时状态变化，不用花哨过渡效果
+完整操作指引（触发条件、精细度评估、设计模板、CK-PT 检查）详见 `references/prototype-planning.md`。
 
 ---
 
@@ -540,6 +475,11 @@ Brief 阶段 PRD 尚未撰写，只能做方向性判断（做哪些屏幕、什
 ## 轻量模式
 
 读取 `references/lite-mode.md` 获取完整操作指引。Stage L1 快速录入（支持批量）→ Stage L2 直接生成（3 章叙事）→ Stage L3 快速审阅。
+
+**轻量模式上下文范围**：轻量模式仅需以下内容作为指导，无需读取自主模式的详细章节（"方案输出"中的 PRD 结构/模板参数化、"自检与审查"的完整检查体系、"原型集成"）：
+- 本文件中"角色定位""核心信念""工作目录约定""阶段管理""启动初始化""交互规范"等通用章节
+- `references/lite-mode.md`（完整 L1-L3 指引，含轻量模式专用的自检和交付流程）
+- `references/core-conventions.md` + `references/progress-display.md`（通用）
 
 ---
 
@@ -560,21 +500,7 @@ Brief 阶段 PRD 尚未撰写，只能做方向性判断（做哪些屏幕、什
 
 ---
 
-## 标记体系
+## 标记体系与补充约束
 
-标记约定、标准格式、生命周期规则详见 `references/core-conventions.md` "标记体系"章节。核心要点：
-
-- **自主模式**：三级体系 — 无标记（已确认）/ `[推断]`（专业推断）/ `[待确认]`（业务歧义）
-- **轻量模式**：仅用 `[待确认]`（每个计入加权复杂度 +2 分），不使用 `[推断]`
-
----
-
-## 补充约束
-
-knowledge-discoveries 格式、双向知识链接机制、模式特别约束详见 `references/core-conventions.md` "补充约束"章节。
-
-核心要点：
-- PRD 过程中发现的新业务知识自动记录到 `knowledge-discoveries.md`，交付时提示一键导入 Curator
-- Workflow 启动时如发现知识库有更新，主动提示并纳入 PRD 背景
-- 轻量模式和自主模式的额外约束分别在 `references/lite-mode.md` 和 `references/autonomous-overview.md` 中定义
+标记约定（三级体系、标准格式、生命周期）、knowledge-discoveries 格式、双向知识链接机制、模式特别约束，统一定义在 `references/core-conventions.md` 中。
 

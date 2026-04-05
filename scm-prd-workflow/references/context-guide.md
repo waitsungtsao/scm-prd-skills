@@ -1,28 +1,51 @@
 # 行动指南（全程保留）
 
-读取时机：初始化时加载，全程不释放。本文件是 AI 的"工作记忆管理协议"。
+读取时机：初始化时加载，全程不释放。本文件是 AI 的阶段参考读取协议。
 
 ---
 
-## 阶段 → 加载清单
+## 阶段 → 核心参考
 
-| 阶段 | 加载 | 可释放上阶段内容 |
-|------|------|----------------|
-| 初始化 | context-guide, core-conventions, progress-display, env-setup | — |
-| MC-01 后（自主） | + autonomous-overview | env-setup |
-| MC-01 后（轻量） | + lite-mode | env-setup |
-| Stage A | + stage-a-intake | — |
-| Stage B 叙事规划 | + writing-principles, writing-narrative, stage-bc-generate-review | stage-a-intake |
-| Stage B 撰写 | + writing-chapters, diagram-patterns | writing-narrative |
-| Stage B 图表 | + diagram-yaml-schema; 查阅 examples/*.yaml | — |
-| Stage B 自检 | + review-guide | writing-chapters, diagram-* |
-| Stage C 审阅 | （review-guide + stage-bc 已加载） | writing-principles |
-| Stage D 原型 | + prototype-planning | review-guide |
-| 交付 | review-guide（约束索引提取） | 其余全部 |
+每个阶段有核心关注的参考文件。进入新阶段时，读取对应文件并以其为当前阶段的主要指导。
+
+| 阶段 | 核心参考 | 关注重点 |
+|------|----------|----------|
+| 初始化 | context-guide, core-conventions, progress-display, env-setup | 流程全景、交互规范、进度显示、环境检测 |
+| MC-01 → 自主 | + autonomous-overview | 模式切换规则、自主模式约束 |
+| MC-01 → 轻量 | + lite-mode | 轻量全流程 L1-L3 |
+| Stage A | + stage-a-intake | 信息收集策略、收敛判断、红旗识别 |
+| Stage B 叙事规划 | + writing-principles, writing-narrative, stage-bc-generate-review | 叙事规划、NP 自检、CD-01 交互 |
+| Stage B 撰写 | + writing-chapters, diagram-patterns | 章节写作规范、图表选型 |
+| Stage B 图表 | + diagram-yaml-schema; examples/*.yaml | YAML DSL 语法、泳道布局规则 |
+| Stage B/C 自检 | + review-guide | CK-0~10 检查维度、脚本+AI 分工 |
+| Stage D 原型 | + prototype-planning | 触发条件、设计模板、CK-PT |
+| 修订 | + revision-mode | RV-A~D 流程、delta 原则 |
+| 交付 | review-guide（约束索引提取） | 约束索引更新、交付选项 |
 
 **轻量模式**：Stage L1 = lite-mode 已加载；Stage L2 = + diagram-patterns（如需图表）；Stage L3 = 审阅交付 + Word 生成。批量模式交互流程相同，输出为一个文件含 N 个需求。
 
 **修订模式**：MC-01 前选择修订 → + revision-mode，内部使用自主模式执行。
+
+### Layer 2/3 参考文件完整清单
+
+| Layer | 文件 | 读取时机 |
+|-------|------|---------|
+| 2 | `env-setup.md` | 初始化步骤 5-7 |
+| 2 | `autonomous-overview.md` | 自主模式确认后 |
+| 2 | `stage-a-intake.md` | Stage A 进入 |
+| 2 | `writing-principles.md` | Stage B 叙事规划 |
+| 2 | `writing-narrative.md` | Stage B 叙事规划 |
+| 2 | `writing-chapters.md` | Stage B 撰写开始 |
+| 2 | `diagram-patterns.md` | 图表规划时 |
+| 2 | `review-guide.md` | Stage B 自检 |
+| 2 | `stage-bc-generate-review.md` | Stage B 开始 |
+| 2 | `lite-mode.md` | 轻量模式确认后 |
+| 2 | `revision-mode.md` | 修订模式进入后 |
+| 2 | `prototype-planning.md` | 原型阶段 |
+| 2 | `diagram-yaml-schema.md` | YAML 泳道图生成时 |
+| 3 | `examples/*.yaml` | 生成特定图表时（查阅即可） |
+| 3 | `examples/stage-a-worked-examples.md` | Stage A 深度路径（查阅即可） |
+| 3 | `templates/*.md` | 生成对应产出时（查阅即可） |
 
 ---
 
@@ -80,11 +103,10 @@
 
 每次进入新阶段时，静默执行以下步骤：
 
-1. **查表**：查阅上方"阶段→加载清单"，确定目标阶段需要的 references
-2. **加载**：读取需要但当前未加载的 reference 文件
-3. **释放确认**：明确哪些上阶段内容不再是当前阶段的行动依据（认知边界）
-4. **锚点复述**：内部快速复述目标阶段的核心要求（从上方速查表，重建工作记忆焦点）
+1. **查表**：查阅上方"阶段→核心参考"，确定目标阶段的核心参考文件
+2. **加载**：读取需要但尚未读取的参考文件
+3. **锚点复述**：内部快速复述目标阶段的核心要求（从上方速查表，重建工作记忆焦点）
 
 **退回场景追加**：
-5. 按目标阶段重新执行 1-4
-6. 检查下游已生成文件是否受影响（查阅上方退回表）
+4. 按目标阶段重新执行 1-3
+5. 检查下游已生成文件是否受影响（查阅上方退回表）

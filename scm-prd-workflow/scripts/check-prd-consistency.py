@@ -7,6 +7,7 @@ check-prd-consistency.py — PRD 一致性扫描工具
 2. 模糊用语和冗余表述
 3. 变更点覆盖（每个变更项是否有对应功能和验收标准）
 4. 叙事信号（目标-功能连接、背景量化、验收覆盖率、异常密度）
+5. 标记体系合规（[推断]/[待确认] 格式、数量、模式约束）
 
 三层 ID 体系：
 - 第一层（始终检查）：G-XX 目标、F-XXX 功能
@@ -39,7 +40,7 @@ def detect_prd_mode(content):
         chapter_id_map_override: dict or None — 从 front matter 的 chapter_id_map 解析，
         格式 {'G': '第2章', 'F': '第6章', ...}，未提供时为 None（使用硬编码默认值）。
     """
-    mode = 'full'  # full / lite
+    mode = 'full'  # full / lite / lite-batch
     requirement_type = 'new'  # new / update / mixed
     chapter_id_map_override = None
 
@@ -48,7 +49,9 @@ def detect_prd_mode(content):
     fm_match = re.match(r'\A---[ \t]*\n(.*?\n)---[ \t]*\n', content, re.DOTALL)
     if fm_match:
         fm = fm_match.group(1)
-        if 'mode: lite' in fm:
+        if 'mode: lite-batch' in fm:
+            mode = 'lite-batch'
+        elif 'mode: lite' in fm:
             mode = 'lite'
         # 解析 requirement_type
         for line in fm.split('\n'):
@@ -320,7 +323,7 @@ def check_change_coverage(content, lines):
 def check_er_consistency(content, mode):
     """检查数据模型/ER图一致性。"""
     issues = []
-    if mode == 'lite':
+    if mode in ('lite', 'lite-batch'):
         return issues
 
     has_new_entity = bool(re.search(r'新增.*实体|新增.*表|新建.*系统|是否新增.*是', content))
@@ -333,6 +336,52 @@ def check_er_consistency(content, mode):
             'message': '检测到新增实体/新建系统，但未找到 §7.2 数据模型章节',
             'suggestion': '在 Ch.7 中添加 §7.2 数据模型，包含 ER 图和实体说明表',
         })
+
+    return issues
+
+
+def check_marking_system(content, mode):
+    """检查标记体系合规性：格式、数量、模式约束。"""
+    issues = []
+
+    marks_tuiquan = list(re.finditer(r'\[推断\]', content))
+    marks_daiqueren = list(re.finditer(r'\[待确认\]', content))
+
+    # 轻量模式不应使用 [推断]
+    if mode in ('lite', 'lite-batch') and marks_tuiquan:
+        issues.append({
+            'severity': '警告',
+            'type': '标记体系',
+            'message': f'轻量模式不应使用 [推断] 标记，发现 {len(marks_tuiquan)} 处',
+            'suggestion': '轻量模式下 AI 推断直接写入，不加标记。仅保留 [待确认]',
+        })
+
+    # 轻量模式 [待确认] 不超过 3 个
+    if mode in ('lite', 'lite-batch') and len(marks_daiqueren) > 3:
+        issues.append({
+            'severity': '警告',
+            'type': '标记体系',
+            'message': f'轻量模式 [待确认] 不应超过 3 个，发现 {len(marks_daiqueren)} 个',
+            'suggestion': '超过 3 个 [待确认] 表明复杂度较高，考虑升级到自主模式',
+        })
+
+    # [待确认] 应在 blockquote 格式中
+    lines = content.split('\n')
+    for m in marks_daiqueren:
+        line_start = content.rfind('\n', 0, m.start()) + 1
+        line_end = content.find('\n', m.start())
+        if line_end == -1:
+            line_end = len(content)
+        line = content[line_start:line_end]
+        if not line.strip().startswith('>'):
+            # 找到行号
+            line_num = content[:m.start()].count('\n') + 1
+            issues.append({
+                'severity': '信息',
+                'type': '标记格式',
+                'message': f'L{line_num}: [待确认] 应在 blockquote (>) 格式中',
+                'suggestion': '使用标准格式：> [待确认] 问题？\\n> 当前假设：...',
+            })
 
     return issues
 
@@ -473,16 +522,16 @@ def main():
     # 解析定义章节映射：front matter 自定义 > 模式默认值
     if chapter_id_map_override:
         # 以硬编码默认值为底，用 front matter 覆盖
-        base = (DEFINITION_CHAPTERS_LITE if mode == 'lite' else DEFINITION_CHAPTERS).copy()
+        base = (DEFINITION_CHAPTERS_LITE if mode in ('lite', 'lite-batch') else DEFINITION_CHAPTERS).copy()
         base.update(chapter_id_map_override)
         definition_chapters = base
         print(f"使用自定义章节-ID映射: {chapter_id_map_override}")
     else:
-        definition_chapters = DEFINITION_CHAPTERS_LITE if mode == 'lite' else DEFINITION_CHAPTERS
+        definition_chapters = DEFINITION_CHAPTERS_LITE if mode in ('lite', 'lite-batch') else DEFINITION_CHAPTERS
 
     # 根据模式和需求类型决定跳过的 ID 前缀
     skip_prefixes = set()
-    if mode == 'lite':
+    if mode in ('lite', 'lite-batch'):
         # 轻量模式只检查 G 和 F
         skip_prefixes = {'C', 'IF'}
     elif requirement_type == 'new':
@@ -500,6 +549,7 @@ def main():
         all_issues.extend(check_change_coverage(content, lines))
     all_issues.extend(check_er_consistency(content, mode))
     all_issues.extend(check_narrative_signals(content, lines, mode, requirement_type))
+    all_issues.extend(check_marking_system(content, mode))
 
     # 输出结果
     if not all_issues:

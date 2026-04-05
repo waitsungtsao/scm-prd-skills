@@ -46,18 +46,27 @@
 **摘要格式**（全部就绪时标题用"环境就绪"，有缺失时用"环境状态"）：
 
 ```
-━━━ 环境就绪 ━━━
+━━━ 环境状态 ━━━
   Word 引擎  : JS (docx)           ✓
-  Python     : python3              ✓
+  Python     : 未安装               ⚠ → 复杂泳道图将降级为 Mermaid 格式（不可在 draw.io 编辑）
   PyYAML     : 已安装               ✓
-  Mermaid    : mmdc (本地)          ✓   ← mmdc 不可用时显示 "mermaid.ink (远程) ⚠隐私" 或 "不可用 ⚠"
-  cairosvg   : 未安装 → SVG only    ⚠
+  Mermaid    : mmdc (本地)          ✓
+  cairosvg   : 未安装               ⚠ → 图表仅输出 SVG，Word 中图表用占位文字
 ━━━━━━━━━━━━━━━
+如需安装缺失依赖，可在对话过程中随时操作，不影响 PRD 流程推进。
 ```
 
 - 缺失项用 `⚠` 标记并注明降级方案；可用项用 `✓` 标记
-- 此摘要为纯展示，不阻断流程（除非 Word 引擎缺失需引导）
+- 每个缺失项注明具体影响，帮助用户判断是否需要安装
+- 此摘要不阻断流程（除非 Word 引擎缺失需引导）
 - **Mermaid 隐私提示**：当 mmdc 不可用、降级为 mermaid.ink 远程渲染时，在摘要中标注 `⚠隐私`，并附加说明："mermaid.ink 会将图表内容发送到第三方服务器渲染，含敏感业务流程的图表建议安装 **`npm install -g @mermaid-js/mermaid-cli`** 使用本地渲染"
+
+**缺失依赖的影响说明**：ENV-01 的目的是让用户在 PRD 流程开始前了解环境现状和潜在影响，以便用户决定是否在信息收集阶段（Stage A）同步安装依赖。缺失项不阻断流程，但会影响最终产出格式：
+- **Python 缺失**：复杂流程图（泳道图、>12 节点）只能用 Mermaid 格式，无法生成 draw.io 可编辑文件
+- **cairosvg 缺失**：图表仅输出 SVG，Word 文档中图表位置用占位文字
+- **Mermaid CLI 缺失**：Mermaid 图仅保留源文件，需手动渲染
+
+**Stage B 二次确认**：如果 Stage B 叙事规划中包含需要 Python 的图表类型（泳道图等），且 Python 仍不可用，AI 将在撰写前再次提醒用户并提供降级选项。详见 `diagram-patterns.md` "draw.io 生成降级策略"章节。
 
 ---
 
