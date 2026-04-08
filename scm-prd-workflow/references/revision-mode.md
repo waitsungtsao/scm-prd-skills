@@ -215,7 +215,7 @@
 
 ### 跨 PRD 影响分析
 
-读取 `requirements/_constraints-index.yaml`，对本次修订的每个变更点检查：
+读取 `requirements/_constraints-index.yaml`，**跳过 `status: 已废弃` 的条目**（其约束已由替代 PRD 接管），对其余条目检查本次修订的每个变更点：
 
 1. **接口变更影响**：本 PRD 修改/删除的 IF-XXX，是否出现在其他 PRD 的 `interfaces` 或 `scope_in` 中？
 2. **实体变更影响**：本 PRD 修改/删除的数据实体，是否出现在其他 PRD 的 `entities` 中？

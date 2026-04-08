@@ -391,7 +391,10 @@ PRD 交付时，自动提取结构化约束到 `requirements/_constraints-index.
 
 | PRD 章节 | YAML 字段 | 提取内容 |
 |---------|-----------|---------|
-| front matter | `prd_id`, `version`, `status`, `requirement_type` | 直接读取 |
+| front matter | `prd_id`, `version`, `requirement_type` | 直接读取 |
+| （交付时设置） | `status` | 新交付默认 `活跃`；修订交付保留原状态 |
+| §2.5 范围 → scope_in | `domain_tags` | 从 `scope_in` 提取系统缩写受控词表（OMS/WMS/TMS/BMS/数据看板等） |
+| （交付时设置） | `superseded_by` | 新交付默认 `null`；仅在生命周期管理时更新 |
 | §2.4 目标与指标 | `goals` | G-XX ID + 一句话摘要 |
 | §2.5 范围 | `scope_in`, `scope_out` | 纳入/排除范围列表 |
 | §4 变更总览 | `changes` | C-XX ID + 摘要 + 影响系统（仅 update/mixed） |
@@ -400,11 +403,14 @@ PRD 交付时，自动提取结构化约束到 `requirements/_constraints-index.
 | §7.2 数据模型 | `entities` | 实体名 + new/existing + 归属系统 |
 | §7.4 接口 | `interfaces` | IF-XXX ID + 名称 + 方向 + 关键字段 |
 
+**`domain_tags` 提取规则**：从 `scope_in` 的自由文本中提取已知系统缩写，组成受控词表数组。已知缩写包括：OMS、WMS、TMS、BMS、PMS、CMS、数据看板。示例：`scope_in: ["OMS拆单逻辑", "WMS接收拆单指令"]` → `domain_tags: [OMS, WMS]`。如无法识别系统缩写，`domain_tags` 留空数组 `[]`。
+
 **语义规则**：
 - **按 prd_id 匹配**：每次交付只更新本 PRD 的条目，不修改其他 PRD 的条目
 - **文件不存在时创建**：首次交付时，以 `templates/constraints-index-template.yaml` 的注释头为基础创建文件，替换示例条目为实际数据
-- **修订 PRD 时**：更新 `version`、`last_updated`，以及所有变更的字段
-- **轻量模式简化提取**：轻量 PRD 无独立接口/实体/变更章节，仅提取 `prd_id`、`version`、`requirement_type`、`functions`、`scope_in`；其余字段留空数组 `[]`
+- **修订 PRD 时**：更新 `version`、`last_updated`，以及所有变更的字段；保留 `status`、`domain_tags`、`superseded_by` 不变（这些字段由生命周期管理流程控制）
+- **轻量模式简化提取**：轻量 PRD 无独立接口/实体/变更章节，仅提取 `prd_id`、`version`、`requirement_type`、`functions`、`scope_in`、`domain_tags`；其余字段留空数组 `[]`
+- **向后兼容**：读取旧索引时，缺少 `domain_tags` 视为 `[]`，缺少 `superseded_by` 视为 `null`，缺少 `status` 或值为 `待评审`/`已评审` 视为 `活跃`
 
 ---
 

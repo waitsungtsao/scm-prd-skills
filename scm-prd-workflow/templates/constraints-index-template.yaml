@@ -2,11 +2,25 @@
 # 读取时机：新 PRD 启动时（SKILL.md 初始化步骤 4）
 # 写入时机：PRD 交付时（review-guide.md 最终交付）
 # 语义规则：每次只更新本 PRD 条目（按 prd_id 匹配），不修改其他条目
+#
+# 生命周期状态（status）：
+#   活跃     — 已交付，仍对新 PRD 构成约束（默认值）
+#   已归档   — 已实施上线，接口/实体约束仍有效，但不出现在修订入口列表
+#   已废弃   — 被其他 PRD 替代（见 superseded_by），跨 PRD 扫描时跳过
+#
+# 向后兼容：旧条目缺少 domain_tags / superseded_by 时，
+#   domain_tags 默认 []，superseded_by 默认 null，status 缺省视为"活跃"
+#
+# 未来扩展：当条目超过 ~50 个且 AI 上下文消耗明显时，可拆为两级索引：
+#   _constraints-index.yaml          — 轻量摘要（prd_id/version/status/domain_tags/scope）
+#   _constraints-detail/{prd_id}.yaml — 完整约束（goals/functions/entities/interfaces/rules）
 
 - prd_id: REQ-20260315-order-split          # requirement_id（唯一键）
   prd_file: REQ-20260315-order-split/PRD-order-split.md
   version: V1.2
-  status: 已评审                             # 待评审 | 已评审
+  status: 活跃                               # 活跃 | 已归档 | 已废弃
+  domain_tags: [OMS, WMS]                    # 从 scope_in 提取的系统缩写受控词表
+  superseded_by: null                        # 被替代时填入替代 PRD 的 prd_id
   requirement_type: update                   # new | update | mixed
   last_updated: 2026-03-20
   goals:                                     # 来源：§2.4
