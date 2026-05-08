@@ -45,7 +45,7 @@ const {
   Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell,
   Header, Footer, AlignmentType, LevelFormat, HeadingLevel,
   BorderStyle, WidthType, ShadingType, PageBreak, PageNumber,
-  TabStopType, TabStopPosition,
+  TabStopType, TabStopPosition, FootnoteReferenceRun,
 } = loadDocx();
 
 // ── DESIGN TOKENS (与 scm-prd-style/references/design-tokens.md 一致) ──
@@ -145,6 +145,10 @@ function txt(text, opts = {}) {
     size: opts.size || 22,
     bold: opts.bold || false,
     italics: opts.italics || false,
+    strike: opts.strike || false,
+    underline: opts.underline,
+    subScript: opts.subScript || false,
+    superScript: opts.superScript || false,
     color: opts.color || C.bodyGray,
     shading: opts.shading,
   });
@@ -179,30 +183,68 @@ function spacer(h = 100) {
   return para(txt(" ", { size: 2 }), { spacing: { before: h } });
 }
 
-/** Parse inline **bold** and `code` into TextRun[] */
+// 脚注引用映射（id 字符串 → 1-based 编号），buildDoc 中填充
+let FOOTNOTE_REFS = {};
+
+/**
+ * Parse inline 标记，支持：
+ *   **bold**、`code`、~~strike~~
+ *   <br>、<u>...</u>、<s>...</s>、<sub>...</sub>、<sup>...</sup>、<kbd>...</kbd>
+ *   [^id] 脚注引用
+ */
 function parseInline(text, baseOpts = {}) {
   const sz = baseOpts.size || 22;
   const clr = baseOpts.color || C.bodyGray;
   const bld = baseOpts.bold || false;
   const fn = baseOpts.font || FONT_CN;
+  const base = { size: sz, color: clr, bold: bld, font: fn };
   const runs = [];
-  const re = /(\*\*.*?\*\*|`.*?`)/g;
+
+  const re = /(\*\*.*?\*\*|`[^`]+`|~~.+?~~|<br\s*\/?>|<u>.*?<\/u>|<s>.*?<\/s>|<sub>.*?<\/sub>|<sup>.*?<\/sup>|<kbd>.*?<\/kbd>|\[\^[^\]]+\])/gi;
+
   let last = 0;
   let m;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last)
-      runs.push(txt(text.slice(last, m.index), { size: sz, color: clr, bold: bld, font: fn }));
+    if (m.index > last) runs.push(txt(text.slice(last, m.index), base));
     const seg = m[0];
-    if (seg.startsWith("**"))
-      runs.push(txt(seg.slice(2, -2), { size: sz, color: clr, bold: true, font: fn }));
-    else
-      runs.push(txt(seg.slice(1, -1), { size: 20, color: clr, font: FONT_CODE,
-        shading: { fill: C.bgSubtle, type: ShadingType.CLEAR } }));
+
+    if (seg.startsWith("**")) {
+      runs.push(txt(seg.slice(2, -2), { ...base, bold: true }));
+    } else if (seg.startsWith("`")) {
+      runs.push(txt(seg.slice(1, -1), {
+        size: 20, color: clr, font: FONT_CODE,
+        shading: { fill: C.bgSubtle, type: ShadingType.CLEAR },
+      }));
+    } else if (seg.startsWith("~~")) {
+      runs.push(txt(seg.slice(2, -2), { ...base, strike: true }));
+    } else if (/^<br/i.test(seg)) {
+      runs.push(new TextRun({ break: 1 }));
+    } else if (/^<u>/i.test(seg)) {
+      runs.push(txt(seg.slice(3, -4), { ...base, underline: { type: "single" } }));
+    } else if (/^<s>/i.test(seg)) {
+      runs.push(txt(seg.slice(3, -4), { ...base, strike: true }));
+    } else if (/^<sub>/i.test(seg)) {
+      runs.push(txt(seg.slice(5, -6), { ...base, subScript: true }));
+    } else if (/^<sup>/i.test(seg)) {
+      runs.push(txt(seg.slice(5, -6), { ...base, superScript: true }));
+    } else if (/^<kbd>/i.test(seg)) {
+      runs.push(txt(seg.slice(5, -6), {
+        size: 20, color: clr, font: FONT_CODE,
+        shading: { fill: C.bgSubtle, type: ShadingType.CLEAR },
+      }));
+    } else if (seg.startsWith("[^")) {
+      const id = seg.slice(2, -1);
+      const num = FOOTNOTE_REFS[id];
+      if (num && FootnoteReferenceRun) {
+        runs.push(new FootnoteReferenceRun(num));
+      } else {
+        runs.push(txt(seg, base));
+      }
+    }
     last = m.index + m[0].length;
   }
-  if (last < text.length)
-    runs.push(txt(text.slice(last), { size: sz, color: clr, bold: bld, font: fn }));
-  return runs.length ? runs : [txt(text, { size: sz, color: clr, bold: bld, font: fn })];
+  if (last < text.length) runs.push(txt(text.slice(last), base));
+  return runs.length ? runs : [txt(text, base)];
 }
 
 // ── TABLE COLUMN WIDTH (弹性分配策略) ──
@@ -355,10 +397,33 @@ function makeTable(rows) {
 // ── MARKDOWN PARSER ──
 
 function parseMarkdown(text) {
-  const lines = text.split("\n");
+  const rawLines = text.split("\n");
   const elements = [];
+  const footnotes = {};            // id → 定义文本
   let i = 0;
   let docTitle = "";
+
+  // ── Pre-pass: 提取脚注定义 [^id]: 文本（后续 ≥2 空格缩进行为续行） ──
+  const lines = [];
+  {
+    let j = 0;
+    while (j < rawLines.length) {
+      const fm = rawLines[j].match(/^\[\^([^\]]+)\]:\s*(.*)/);
+      if (fm) {
+        const id = fm[1];
+        const defLines = [fm[2]];
+        j++;
+        while (j < rawLines.length && /^\s{2,}\S/.test(rawLines[j])) {
+          defLines.push(rawLines[j].trim());
+          j++;
+        }
+        footnotes[id] = defLines.join(" ").trim();
+      } else {
+        lines.push(rawLines[j]);
+        j++;
+      }
+    }
+  }
 
   // Skip YAML front matter
   if (lines[0]?.trim() === "---") {
@@ -439,12 +504,21 @@ function parseMarkdown(text) {
       continue;
     }
 
-    // Unordered list
+    // Unordered list（含任务列表 - [ ] / - [x]）
     if (/^\s*[-*]\s+/.test(line)) {
       const items = [];
       while (i < lines.length) {
         const lm = lines[i].match(/^\s*[-*]\s+(.*)/);
-        if (lm) { items.push(lm[1]); i++; }
+        if (lm) {
+          const itemText = lm[1];
+          const taskMatch = itemText.match(/^\[([ xX])\]\s+(.*)/);
+          if (taskMatch) {
+            items.push({ text: taskMatch[2], task: taskMatch[1].toLowerCase() === "x" ? "checked" : "unchecked" });
+          } else {
+            items.push({ text: itemText, task: null });
+          }
+          i++;
+        }
         else if (!lines[i].trim() && i + 1 < lines.length && /^\s*[-*]\s+/.test(lines[i + 1])) { i++; }
         else break;
       }
@@ -475,14 +549,19 @@ function parseMarkdown(text) {
     elements.push({ type: "para", text: paraLines.join(" ") });
   }
 
-  return { docTitle, elements };
+  return { docTitle, elements, footnotes };
 }
 
 // ── BUILD DOCUMENT ──
 
 function buildDoc(mdPath) {
   const mdText = fs.readFileSync(mdPath, "utf-8");
-  const { docTitle, elements } = parseMarkdown(mdText);
+  const { docTitle, elements, footnotes } = parseMarkdown(mdText);
+
+  // 脚注：按定义顺序赋 1-based 编号
+  FOOTNOTE_REFS = {};
+  let fnNum = 1;
+  for (const id of Object.keys(footnotes)) FOOTNOTE_REFS[id] = fnNum++;
 
   const content = [];
   let prevType = null; // 跟踪上一个元素类型
@@ -562,8 +641,19 @@ function buildDoc(mdPath) {
 
       case "ul":
         flushTableGap();
-        for (const item of el.items)
-          content.push(para(parseInline(item), { numbering: { reference: "bullets", level: 0 }, spacing: { after: 80, line: 360 } }));
+        for (const item of el.items) {
+          if (item.task) {
+            const mark = item.task === "checked" ? "☑  " : "☐  ";
+            const markColor = item.task === "checked" ? C.success : C.midGray;
+            const itemRuns = [
+              txt(mark, { color: markColor, bold: true }),
+              ...parseInline(item.text),
+            ];
+            content.push(para(itemRuns, { spacing: { after: 80, line: 360 }, indent: { left: 360 } }));
+          } else {
+            content.push(para(parseInline(item.text), { numbering: { reference: "bullets", level: 0 }, spacing: { after: 80, line: 360 } }));
+          }
+        }
         prevType = "ul";
         break;
 
@@ -659,7 +749,17 @@ function buildDoc(mdPath) {
   ];
 
   // ── DOCUMENT ──
+  // 脚注配置：id → { children: [Paragraph] }
+  const footnoteConfig = {};
+  for (const [id, defText] of Object.entries(footnotes)) {
+    const num = FOOTNOTE_REFS[id];
+    footnoteConfig[num] = {
+      children: [new Paragraph({ children: parseInline(defText, { size: 18, color: C.bodyGray }) })],
+    };
+  }
+
   return new Document({
+    ...(Object.keys(footnoteConfig).length > 0 ? { footnotes: footnoteConfig } : {}),
     styles: {
       default: { document: { run: { font: FONT_CN, size: 22, color: C.bodyGray } } },
       paragraphStyles: [
