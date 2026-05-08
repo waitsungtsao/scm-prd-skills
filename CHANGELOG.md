@@ -4,6 +4,33 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.05.0] - 2026-05-08
+
+从两个独立 skill（md-to-docx、flow-architect）反向同步改进回 PRD skill：Word 生成补 4 个 Markdown 特性；图表引擎升级 + 设计原则文档化。
+
+### Added
+
+- **Markdown → Word 4 个特性补齐**：`md2docx.mjs` 同步删除线 (`~~text~~`)、任务列表 (`- [ ]` / `- [x]`)、HTML 内联标签解析（`<sub>` / `<sup>` / `<u>` / `<kbd>` / `<mark>`）、脚注 (`[^id]` + `[^id]: ...`)
+- **图表引擎布局参数化**：5 个布局常数（`row_height` / `node_x_gap` / `flow_h_spacing` / `lane_min_width` / `lane_content_padding`）可通过 YAML 顶层 `config:` 字段覆盖；默认值不变，向后兼容
+- **几何校验 V-1~V-4**：图表生成后脚本自动检查端口冲突 / 反向边 / 节点重叠 / 标签溢出
+- **避障路由**：`yaml2svg.py` 新增 `_segment_blocked` / `_safe_mid_x/y` 三函数，防止箭头穿越节点；3 点路径修复箭头方向歪斜
+- **新增 references/layout-philosophy.md**：引擎能力边界（DAG / ≤15 节点 / ≤5 泳道 / ≤2 出边决策为支持范围）+ 多信号拆图判断（节点数、跨泳道边占比、决策密度、嵌套子流程、回环 5 个信号，任 2 个命中建议拆图）+ ELK.js spike 实验记录（结论：保留 builtin）
+- **新增 references/diagram-fallback.md**：图表层面的渲染降级与几何校验（与 `env-setup.md` 的环境检测分离）
+- **新增 4 个 examples**：`scm-inbound-flow` / `scm-outbound-flow` / `er-data-model` / `flow-change-local` 完整 `.diagram.yaml` + `.drawio` / `.svg` / `.png` 渲染产物
+- **新增 2 个压力测试 fixture**：`stress_decision_4out.yaml`（4 出边决策）+ `stress_dense_swimlanes.yaml`（高密度泳道）
+
+### Changed
+
+- **决策菱形端口分配**：fractional bottom (0.7, 1) 在与 primary 同向时禁用，改用 PORT_RIGHT/LEFT 按目标 dx 符号选，避免横向段穿过目标节点
+- **代码标注样本特化与通用代码段**：`# SAMPLE-SPECIFIC` 标记针对当前 4 张样本的几何特殊处理，`# GENERALIZABLE` 标记可推广的通用逻辑（拓扑排序、归一化点积反向检测等），便于未来切换到 ELK 时识别迁移边界
+- **examples 目录命名统一**：`scm-{flow}.yaml` → `scm-{flow}.diagram.yaml`（与 `export-diagrams.py` 后缀识别一致）
+- **SKILL.md 加图表深入阅读索引**：在图表规划章节前列出 4 个文档（schema / patterns / philosophy / fallback）的入口
+
+### Fixed
+
+- **F-XXX 占位符不渲染为 Feature Heading**：示例 PRD 中 F-XXX 改为 F-999 / F-999.1 / IF-999 / G-99 / C-99，因 `md2docx.mjs` 的 `^F-\d` 正则要求数字
+- **轻量模式章节数描述**：SKILL.md 撰写中断阈值从"<7 章"改为"<3 章"，与 `lite-prd-template.md` 实际章节数对齐
+
 ## [2026.04.13] - 2026-04-08
 
 持续生产场景的文件夹组织策略：约束索引生命周期管理 + 参考文档归档。

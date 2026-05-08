@@ -20,6 +20,28 @@
 
 文件扩展名：`.diagram.yaml`，保存在 `diagrams/` 目录下。
 
+## 可选 layout 配置
+
+YAML 可在顶层加 `config:` 字段覆盖默认布局常数（向后兼容，不写就用默认）：
+
+```yaml
+diagram:
+  title: "..."
+  type: swimlane
+
+config:                    # 可选；不写就用默认
+  row_height: 150          # 节点行间距，默认 120 px。复杂图（节点 >15）建议 140-160
+  node_x_gap: 40           # 同行节点水平间距，默认 30
+  lane_min_width: 240      # 泳道最小宽度，默认 200
+  lane_content_padding: 30 # 泳道内边距，默认 24
+  flow_h_spacing: 240      # 流程图列间距（无泳道时），默认 200
+  flow_v_spacing: 140      # 流程图行间距（无泳道时），默认 120
+
+lanes: [...]
+```
+
+调大数值能给折点 / 标签留更多空间，副作用是图整体变大。默认值是基于 ≤17 节点 ≤5 泳道的样本调优的，**节点数 >20 或同行 6+ 节点并排时建议手动调大** `row_height` / `node_x_gap`。详细能力边界见 [`layout-philosophy.md`](./layout-philosophy.md)。
+
 ## Schema 定义
 
 ### 顶层结构
@@ -236,20 +258,17 @@ edges:
 需要 Python 3.8+ 和 PyYAML（`pip install pyyaml`）。
 
 ```bash
-# macOS / Linux
-python3 scm-prd-workflow/scripts/yaml2drawio.py \
-    requirements/REQ-xxx/diagrams/main-flow.diagram.yaml
+# 单文件转换
+python3 scripts/yaml2drawio.py path/to/main-flow.diagram.yaml
+# → 输出: path/to/main-flow.drawio
 
-# Windows（根据环境使用 python 或 py -3）
-python scm-prd-workflow/scripts/yaml2drawio.py ^
-    requirements/REQ-xxx/diagrams/main-flow.diagram.yaml
-
-# → 输出: requirements/REQ-xxx/diagrams/main-flow.drawio
+# 批量转换目录下所有 .diagram.yaml + .mermaid
+python3 scripts/export-diagrams.py path/to/diagrams/
 ```
 
 转换后的 `.drawio` 文件可用 VS Code draw.io 扩展或 draw.io 桌面应用打开和编辑。
 
-**Python 不可用时**：`.diagram.yaml` 源文件本身是完整的图表描述，可在 Python 环境就绪后再转换，或回退到 Mermaid 方案。详见 SKILL.md 3.2 节降级处理。
+**Python 不可用时**：`.diagram.yaml` 源文件本身是完整的图表描述，可在 Python 环境就绪后再转换。降级策略详见 [`diagram-fallback.md`](./diagram-fallback.md)。
 
 ---
 

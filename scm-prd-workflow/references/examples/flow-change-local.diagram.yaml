@@ -1,0 +1,104 @@
+# 变更类需求示例：在现有"订单提交→付款"流程中插入"风控审核"节点。
+# 范围：变更点 + 上下游各 1-2 步上下文。新增节点用 style: highlight 标注。
+
+diagram:
+  title: "订单提交流程改造（新增风控审核）"
+  type: swimlane
+
+lanes:
+  - id: customer
+    label: "客户"
+    color: blue
+  - id: oms
+    label: "订单系统 OMS"
+    color: green
+  - id: risk
+    label: "风控系统"
+    color: orange
+  - id: payment
+    label: "支付网关"
+    color: purple
+
+nodes:
+  - id: submit
+    label: "提交订单"
+    type: start
+    lane: customer
+
+  - id: validate
+    label: "校验商品库存"
+    type: process
+    lane: oms
+
+  - id: create_order
+    label: "创建订单(待支付)"
+    type: process
+    lane: oms
+
+  # ── 改动点起 ──
+  - id: risk_check
+    label: "风控审核"
+    type: process
+    lane: risk
+    style: highlight
+
+  - id: risk_decision
+    label: "审核结果?"
+    type: decision
+    lane: risk
+    style: highlight
+
+  - id: risk_reject
+    label: "驳回订单"
+    type: process
+    lane: risk
+    style: error
+  # ── 改动点止 ──
+
+  - id: pay_request
+    label: "发起支付"
+    type: process
+    lane: oms
+
+  - id: pay_confirm
+    label: "支付确认"
+    type: process
+    lane: payment
+
+  - id: order_paid
+    label: "订单完成支付"
+    type: end
+    lane: oms
+
+  - id: order_cancel
+    label: "订单取消"
+    type: end
+    lane: oms
+
+edges:
+  - from: submit
+    to: validate
+  - from: validate
+    to: create_order
+
+  # 改动：原本 create_order → pay_request，现在中间插入风控审核
+  - from: create_order
+    to: risk_check
+    label: "送审"
+  - from: risk_check
+    to: risk_decision
+  - from: risk_decision
+    to: pay_request
+    label: "通过"
+  - from: risk_decision
+    to: risk_reject
+    label: "拒绝"
+    style: error
+  - from: risk_reject
+    to: order_cancel
+    style: async
+
+  - from: pay_request
+    to: pay_confirm
+  - from: pay_confirm
+    to: order_paid

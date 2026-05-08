@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="1160" viewBox="0 0 860 1160">
+<rect width="860" height="1160" fill="white"/>
+<defs>
+  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+  </marker>
+</defs>
+<text x="430.0" y="50.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="16" font-weight="bold" fill="#333">订单提交流程改造（新增风控审核）</text>
+<rect x="30" y="70" width="200" height="1060" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1" opacity="0.3"/>
+<rect x="30" y="70" width="200" height="30" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1"/>
+<text x="130.0" y="85.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">客户</text>
+<rect x="230" y="70" width="200" height="1060" fill="#d5e8d4" stroke="#82b366" stroke-width="1" opacity="0.3"/>
+<rect x="230" y="70" width="200" height="30" fill="#d5e8d4" stroke="#82b366" stroke-width="1"/>
+<text x="330.0" y="85.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">订单系统 OMS</text>
+<rect x="430" y="70" width="200" height="1060" fill="#ffe6cc" stroke="#d6b656" stroke-width="1" opacity="0.3"/>
+<rect x="430" y="70" width="200" height="30" fill="#ffe6cc" stroke="#d6b656" stroke-width="1"/>
+<text x="530.0" y="85.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">风控系统</text>
+<rect x="630" y="70" width="200" height="1060" fill="#e1d5e7" stroke="#9673a6" stroke-width="1" opacity="0.3"/>
+<rect x="630" y="70" width="200" height="30" fill="#e1d5e7" stroke="#9673a6" stroke-width="1"/>
+<text x="730.0" y="85.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">支付网关</text>
+  <polyline points="130,210 130,300 270,300" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <polyline points="330,330 330,360 330,360 330,390" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <polyline points="330,450 330,540 470,540" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="400.0" y="489.0" text-anchor="middle" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#666">送审</text>
+  <polyline points="530,570 530,600 530,600 530,630" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <polyline points="530,690 530,780 390,780" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="545.0" y="729.0" text-anchor="middle" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#666">通过</text>
+  <polyline points="590,660 530,660 530,750" fill="none" stroke="#b85450" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="560.0" y="644.0" text-anchor="middle" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#b85450">拒绝</text>
+  <polyline points="530,810 530,900 370,900" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="8,4" marker-end="url(#arrowhead)"/>
+  <polyline points="330,810 330,900 670,900" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <polyline points="730,930 730,1020 384,1020" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <circle cx="130.0" cy="180.0" r="30.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.5"/>
+  <text x="130.0" y="180.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">提交订单</text>
+  <rect x="270" y="270" width="120" height="60" rx="8" fill="#d5e8d4" stroke="#82b366" stroke-width="1.5"/>
+  <text x="330.0" y="300.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">校验商品库存</text>
+  <rect x="262" y="390" width="136" height="60" rx="8" fill="#d5e8d4" stroke="#82b366" stroke-width="1.5"/>
+  <text x="330.0" y="420.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">创建订单(待支付)</text>
+  <rect x="470" y="510" width="120" height="60" rx="8" fill="#fff2cc" stroke="#d6b656" stroke-width="1.5"/>
+  <text x="530.0" y="540.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">风控审核</text>
+  <polygon points="529.5,630 590,660.0 529.5,690 469,660.0" fill="#fff2cc" stroke="#d6b656" stroke-width="1.5"/>
+  <text x="529.5" y="660.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">审核结果?</text>
+  <rect x="470" y="750" width="120" height="60" rx="8" fill="#f8cecc" stroke="#b85450" stroke-width="1.5"/>
+  <text x="530.0" y="780.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">驳回订单</text>
+  <rect x="270" y="750" width="120" height="60" rx="8" fill="#d5e8d4" stroke="#82b366" stroke-width="1.5"/>
+  <text x="330.0" y="780.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">发起支付</text>
+  <rect x="670" y="870" width="120" height="60" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.5"/>
+  <text x="730.0" y="900.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">支付确认</text>
+  <circle cx="330.0" cy="1020.0" r="30.0" fill="#d5e8d4" stroke="#82b366" stroke-width="3"/>
+  <text x="330.0" y="1020.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">订单完成支付</text>
+  <circle cx="330.0" cy="900.0" r="30.0" fill="#d5e8d4" stroke="#82b366" stroke-width="3"/>
+  <text x="330.0" y="900.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" fill="#333">订单取消</text>
+</svg>

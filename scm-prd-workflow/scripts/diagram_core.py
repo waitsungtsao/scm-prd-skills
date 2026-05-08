@@ -94,21 +94,53 @@ NODE_SIZES = DEFAULT_NODE_SIZES
 
 # =============================================================================
 # 布局参数 — 泳道图（泳道横向排列为列，流程从上往下）
+#
+# 这些是默认值。当前值是基于 4 张样本图（≤17 节点、≤5 泳道）调优的，
+# 对节点数 >20 或 6+ 节点并排的场景未充分验证（见 layout-philosophy.md
+# 第 7 节"能力边界"）。可通过 YAML 顶层 `config:` 字段覆盖：
+#   config:
+#     row_height: 150          # 节点行间距（默认 120）
+#     node_x_gap: 40           # 同行节点水平间距（默认 30）
+#     lane_min_width: 240      # 泳道最小宽度（默认 200）
+#     ...
 # =============================================================================
 
-LANE_MIN_WIDTH = 200          # 每条泳道列的最小宽度
-LANE_HEADER_HEIGHT = 30       # 泳道标题栏高度（列顶部）
-LANE_CONTENT_PADDING = 20     # 泳道内容区左右内边距
-ROW_HEIGHT = 100              # 节点行间距（垂直）
-ROW_TOP_PADDING = 20          # 泳道标题与首行节点间距
-ROW_BOTTOM_PADDING = 50       # 末行节点与泳道底部间距（含边标签/箭头空间）
-NODE_X_GAP = 20               # 同行多节点水平间距
-DIAGRAM_MARGIN = 30           # 图表外边距（含底部安全区防截断）
-TITLE_HEIGHT = 40             # 图表标题高度
+LANE_MIN_WIDTH = 200          # 每条泳道列的最小宽度  # SAMPLE-SPECIFIC tuning
+LANE_HEADER_HEIGHT = 30       # 泳道标题栏高度（列顶部）  # GENERALIZABLE
+LANE_CONTENT_PADDING = 24     # 泳道内容区左右内边距（折点避让）  # SAMPLE-SPECIFIC tuning
+ROW_HEIGHT = 120              # 节点行间距（垂直，>=节点高 60 + 60px 折点空间）  # SAMPLE-SPECIFIC tuning
+ROW_TOP_PADDING = 20          # 泳道标题与首行节点间距  # GENERALIZABLE
+ROW_BOTTOM_PADDING = 50       # 末行节点与泳道底部间距（含边标签/箭头空间）  # GENERALIZABLE
+NODE_X_GAP = 30               # 同行多节点水平间距  # SAMPLE-SPECIFIC tuning
+DIAGRAM_MARGIN = 30           # 图表外边距（含底部安全区防截断）  # GENERALIZABLE
+TITLE_HEIGHT = 40             # 图表标题高度  # GENERALIZABLE
 
 # 布局参数 — 普通流程图（无泳道）
-FLOW_H_SPACING = 160
-FLOW_V_SPACING = 100
+FLOW_H_SPACING = 200          # 列中心距，给跨列折点留空间  # SAMPLE-SPECIFIC tuning
+FLOW_V_SPACING = 120          # SAMPLE-SPECIFIC tuning
+
+
+# YAML config 字段名 → 上面常数名 的映射（用于运行时覆盖）
+_CONFIG_KEYS = {
+    'lane_min_width': 'LANE_MIN_WIDTH',
+    'lane_content_padding': 'LANE_CONTENT_PADDING',
+    'row_height': 'ROW_HEIGHT',
+    'node_x_gap': 'NODE_X_GAP',
+    'flow_h_spacing': 'FLOW_H_SPACING',
+    'flow_v_spacing': 'FLOW_V_SPACING',
+}
+
+
+def _resolve_layout_config(data):
+    """从 YAML 顶层 config 字段读取覆盖值，返回 (param_name → value) 字典。
+    用户未指定的字段使用模块级默认。
+    """
+    user_cfg = (data or {}).get('config', {}) if isinstance(data, dict) else {}
+    out = {}
+    g = globals()
+    for ykey, const_name in _CONFIG_KEYS.items():
+        out[const_name] = user_cfg.get(ykey, g[const_name])
+    return out
 
 
 # =============================================================================
@@ -352,6 +384,26 @@ PORT_TOP    = (0.5, 0)
 PORT_RIGHT  = (1, 0.5)
 PORT_LEFT   = (0, 0.5)
 
+# 判断端口属于哪个边（不依赖 x 坐标，支持 fractional 端口如 (0.3, 1)）
+def _is_bottom_port(p): return p[1] == 1
+def _is_top_port(p):    return p[1] == 0
+def _is_right_port(p):  return p[0] == 1
+def _is_left_port(p):   return p[0] == 0
+
+
+def _is_backward_exit(ex, ey, dx, dy):
+    """判断 exit 端口方向是否与目标方向严重相反（夹角 > 110°）。
+    fix V-4 阈值 bug：原 evx*dx + evy*dy < -30 在小目标距离时永不触发。
+    现归一化后用 cos 阈值 -0.3 ≈ 110°。
+    """
+    norm = (dx * dx + dy * dy) ** 0.5
+    if norm < 1:
+        return False
+    evx, evy = ex - 0.5, ey - 0.5
+    # |evx|, |evy| ∈ {0, 0.5}；点积 / 长度 / 0.5 = cos
+    cos = (evx * dx + evy * dy) / (0.5 * norm)
+    return cos < -0.3
+
 
 def compute_edge_ports(edges, nodes, node_positions, lane_geometries,
                        is_swimlane=True):
@@ -406,103 +458,172 @@ def compute_edge_ports(edges, nodes, node_positions, lane_geometries,
         else:
             return 'tertiary'
 
-    port_map = {}
+    def _direction_pref(dx, dy, same_lane):
+        """目标方向偏好: 'down' / 'up' / 'right' / 'left'。"""
+        # 主轴判定：垂直差远超水平差 → up/down
+        if abs(dy) > abs(dx) * 1.4:
+            return 'down' if dy > 0 else 'up'
+        if abs(dx) > abs(dy) * 1.4:
+            return 'right' if dx > 0 else 'left'
+        # 接近 45° 角：泳道内偏好下行，跨泳道按 dx 符号
+        if same_lane:
+            return 'down' if dy > 0 else 'up'
+        return 'right' if dx > 0 else 'left'
 
-    for edge in edges:
-        efrom, eto = edge['from'], edge['to']
-        if efrom not in node_positions or eto not in node_positions:
-            continue
+    def _allocate_node_ports(src_id, src_edges):
+        """对一个源节点的所有出边一次性分配 exit 端口，避免冲突。
 
-        source_node = node_map.get(efrom, {})
-        siblings = out_edges.get(efrom, [])
-        is_decision = source_node.get('type') == 'decision' and len(siblings) >= 2
+        策略：
+        - 单出边：泳道模式 PORT_BOTTOM；流程模式 PORT_RIGHT
+        - 决策节点：primary 锁 PORT_BOTTOM；其余按方向分配，与 primary 同向时
+          降级为 fractional bottom port (0.3,1) / (0.7,1) 让两条出边底部分流
+        - 普通多出边：贪心按方向分配；同方向冲突时降级为 fractional 端口
+        """
+        result = {}  # edge_obj_id → (ex, ey)
+        if not src_edges:
+            return result
 
-        # 先算位置关系（exit 端口分配可能需要）
-        sx, sy = _abs_center(efrom)
-        tx, ty = _abs_center(eto)
-        src_lane_x = _lane_x(efrom)
-        tgt_lane_x = _lane_x(eto)
-        same_lane = (src_lane_x == tgt_lane_x)
-        dx, dy = tx - sx, ty - sy
+        if len(src_edges) == 1:
+            result[id(src_edges[0])] = PORT_BOTTOM if is_swimlane else PORT_RIGHT
+            return result
 
-        # ── Exit 端口 ──
-        has_multi_out = len(siblings) >= 2
+        sx, sy = _abs_center(src_id)
+        src_node = node_map.get(src_id, {})
+        is_decision = src_node.get('type') == 'decision' and len(src_edges) >= 2
+        src_lane_x = _lane_x(src_id)
+
+        # 先算每条出边的方向偏好
+        dirs = []
+        for e in src_edges:
+            tx, ty = _abs_center(e['to'])
+            tgt_lane_x = _lane_x(e['to'])
+            same_lane = (src_lane_x == tgt_lane_x)
+            dx, dy = tx - sx, ty - sy
+            d = _direction_pref(dx, dy, same_lane)
+            dirs.append({'edge': e, 'dir': d, 'dx': dx, 'dy': dy})
 
         if is_decision:
-            branch = _classify_branch(edge, siblings)
-            if branch == 'primary':
-                exit_port = PORT_BOTTOM
-            elif branch == 'alternate':
-                # 根据目标位置决定从哪侧出：目标在右侧→右出，在左侧→左出
-                if dx > 0 or same_lane:
-                    exit_port = PORT_RIGHT
+            # 找 primary（标签优先，否则 YAML 第一条）
+            primary = None
+            for d in dirs:
+                label = d['edge'].get('label', '').strip().lower()
+                if label in _PRIMARY_LABELS:
+                    primary = d
+                    break
+            if primary is None:
+                primary = dirs[0]
+            result[id(primary['edge'])] = PORT_BOTTOM
+            used = {PORT_BOTTOM: 1}
+
+            for d in dirs:
+                if d is primary:
+                    continue
+                pref = d['dir']
+                pick = None
+                if pref == 'right' and PORT_RIGHT not in used:
+                    pick = PORT_RIGHT
+                elif pref == 'left' and PORT_LEFT not in used:
+                    pick = PORT_LEFT
+                elif pref == 'up' and PORT_TOP not in used:
+                    pick = PORT_TOP
+                elif pref == 'down':
+                    # SAMPLE-SPECIFIC: 决策菱形特殊几何处理。与 primary 同向时
+                    # 不用 fractional bottom（菱形 bbox 上的 70% 位置不在菱形
+                    # 真实边界，drawio 渲染会错位），改用 PORT_RIGHT/LEFT 按目标
+                    # dx 符号选。对其他形状决策节点（梯形/六边形）此补丁失效，
+                    # 但当前 type=decision 仅菱形。
+                    if d['dx'] >= 0:
+                        pick = PORT_RIGHT if PORT_RIGHT not in used else PORT_LEFT
+                    else:
+                        pick = PORT_LEFT if PORT_LEFT not in used else PORT_RIGHT
+                # 兜底：偏好端口被占 → 退到剩余端口
+                if pick is None:
+                    for cand in (PORT_RIGHT, PORT_LEFT, PORT_TOP):
+                        if cand not in used:
+                            pick = cand
+                            break
+                if pick is None:
+                    # 极端：4 出边全朝下且 PORT_BOTTOM/LEFT/RIGHT/TOP 都用过
+                    pick = PORT_TOP
+                result[id(d['edge'])] = pick
+                used[pick] = used.get(pick, 0) + 1
+            return result
+
+        # 普通多出边：方向贪心 + fractional 兜底
+        used = {}
+        for d in dirs:
+            pref = d['dir']
+            base_port = {
+                'down': PORT_BOTTOM, 'up': PORT_TOP,
+                'right': PORT_RIGHT, 'left': PORT_LEFT,
+            }[pref]
+            if base_port not in used:
+                pick = base_port
+            else:
+                # fractional 兜底：根据次主轴符号偏移
+                if pref in ('down', 'up'):
+                    yv = base_port[1]
+                    pick = (0.3, yv) if d['dx'] < 0 else (0.7, yv)
                 else:
-                    exit_port = PORT_LEFT
-            else:
-                # 第三条分支：取 alternate 的反方向
-                exit_port = PORT_LEFT if dx > 0 else PORT_RIGHT
-        elif has_multi_out:
-            # 非决策节点但有多条出边 → 按目标位置分配端口
-            if same_lane or abs(dx) < 50:
-                exit_port = PORT_BOTTOM  # 同泳道目标：底部出
-            elif dx > 0:
-                exit_port = PORT_RIGHT   # 右侧泳道目标：右出
-            else:
-                exit_port = PORT_LEFT    # 左侧泳道目标：左出
-        else:
-            # 单出边：泳道模式从底部出，流程模式从右侧出
-            exit_port = PORT_BOTTOM if is_swimlane else PORT_RIGHT
-
-        if exit_port == PORT_BOTTOM:
-            if same_lane or abs(dx) < 50:
-                entry_port = PORT_TOP  # 同泳道垂直下行
-            elif dx > 0:
-                entry_port = PORT_LEFT  # 目标在右侧泳道
-            else:
-                entry_port = PORT_RIGHT  # 目标在左侧泳道
-        elif exit_port == PORT_RIGHT:
-            if dx > 0 and not same_lane:
-                entry_port = PORT_LEFT  # 向右跨泳道
-            elif same_lane and dy > 0:
-                entry_port = PORT_TOP  # 同泳道下方
-            else:
-                entry_port = PORT_TOP if dy > 0 else PORT_BOTTOM
-        elif exit_port == PORT_LEFT:
-            if dx < 0 and not same_lane:
-                entry_port = PORT_RIGHT  # 向左跨泳道
-            elif same_lane and dy > 0:
-                entry_port = PORT_TOP
-            else:
-                entry_port = PORT_TOP if dy > 0 else PORT_BOTTOM
-        else:  # PORT_TOP（回退边）
-            entry_port = PORT_BOTTOM
-
-        port_map[(efrom, eto)] = {'exit': exit_port, 'entry': entry_port}
-
-    # ── 自动修正 pass（顺序重要：先修方向，再修冲突）──
+                    xv = base_port[0]
+                    pick = (xv, 0.3) if d['dy'] < 0 else (xv, 0.7)
+            result[id(d['edge'])] = pick
+            used[pick] = used.get(pick, 0) + 1
+        return result
 
     def _recalc_entry(new_exit, efrom, eto):
-        """根据新的 exit 端口重新计算 entry。"""
+        """根据新的 exit 端口重新计算 entry。
+        支持 fractional 端口（如 (0.3, 1) 仍属 BOTTOM）。
+        """
         sx, sy = _abs_center(efrom)
         tx, ty = _abs_center(eto)
         dx = tx - sx
-        if new_exit == PORT_BOTTOM:
-            return PORT_TOP if abs(dx) < 50 else (PORT_LEFT if dx > 0 else PORT_RIGHT)
-        elif new_exit == PORT_RIGHT:
-            return PORT_LEFT if dx > 0 else PORT_TOP
-        elif new_exit == PORT_LEFT:
-            return PORT_RIGHT if dx < 0 else PORT_TOP
-        else:
+        dy = ty - sy
+        if _is_bottom_port(new_exit):
+            if new_exit != PORT_BOTTOM:
+                return PORT_TOP
+            if abs(dx) < 50:
+                return PORT_TOP
+            return PORT_LEFT if dx > 0 else PORT_RIGHT
+        elif _is_right_port(new_exit):
+            # SAMPLE-SPECIFIC: 阈值 dy>30 / dx<dy*2 / dx>50 是基于样本图节点
+            # 间距（ROW_HEIGHT=120, NODE_X_GAP=30）调出来的。
+            # 目标在下方且 x 距不大 → PORT_TOP 走垂直 Z 折线（避免水平段穿目标）
+            if dy > 30 and abs(dx) < abs(dy) * 2:
+                return PORT_TOP
+            if dx > 50:
+                return PORT_LEFT
+            return PORT_TOP if dy > 0 else PORT_BOTTOM
+        elif _is_left_port(new_exit):
+            # SAMPLE-SPECIFIC: 同上对称
+            if dy > 30 and abs(dx) < abs(dy) * 2:
+                return PORT_TOP
+            if dx < -50:
+                return PORT_RIGHT
+            return PORT_TOP if dy > 0 else PORT_BOTTOM
+        else:  # TOP（回退）
             return PORT_BOTTOM
 
-    # V-4 修正（先）：exit 方向与目标方向相反 → 翻转 exit
+    # ── 阶段 1: 全局 exit 端口分配（按源节点）──
+    port_map = {}
+    for src_id, src_edges in out_edges.items():
+        if src_id not in node_positions:
+            continue
+        valid_edges = [e for e in src_edges if e['to'] in node_positions]
+        exit_alloc = _allocate_node_ports(src_id, valid_edges)
+        for edge in valid_edges:
+            ex_port = exit_alloc.get(id(edge), PORT_BOTTOM)
+            entry_port = _recalc_entry(ex_port, src_id, edge['to'])
+            port_map[(src_id, edge['to'])] = {'exit': ex_port, 'entry': entry_port}
+
+    # ── 阶段 2: V-4 修正（exit 方向与目标方向严重相反时翻转）──
+    # 全局分配通常已避免反向，但小目标距离 / 角度边界仍可能触发
     for (efrom, eto), ports in port_map.items():
         ex, ey = ports['exit']
         sx, sy = _abs_center(efrom)
         tx, ty = _abs_center(eto)
         dx, dy = tx - sx, ty - sy
-        evx, evy = ex - 0.5, ey - 0.5
-        if evx * dx + evy * dy < -30:
+        if _is_backward_exit(ex, ey, dx, dy):
             if abs(dy) > abs(dx):
                 new_exit = PORT_BOTTOM if dy > 0 else PORT_TOP
             else:
@@ -510,27 +631,7 @@ def compute_edge_ports(edges, nodes, node_positions, lane_geometries,
             ports['exit'] = new_exit
             ports['entry'] = _recalc_entry(new_exit, efrom, eto)
 
-    # V-1 修正（后）：同节点同出口的多条边 → 轮转分配不同端口
-    _ROTATE_PORTS = [PORT_BOTTOM, PORT_RIGHT, PORT_LEFT, PORT_TOP]
-    # 先收集每个源节点已占用的全部出口
-    node_used_exits = defaultdict(set)
-    for (efrom, eto), ports in port_map.items():
-        node_used_exits[efrom].add(ports['exit'])
-
-    exit_usage = defaultdict(list)
-    for (efrom, eto), ports in port_map.items():
-        exit_usage[(efrom, ports['exit'])].append((efrom, eto))
-    for (src, port), keys in exit_usage.items():
-        if len(keys) <= 1:
-            continue
-        # 保留第一条不变，后续轮转到该节点未占用的端口
-        for key in keys[1:]:
-            for candidate in _ROTATE_PORTS:
-                if candidate not in node_used_exits[src]:
-                    port_map[key]['exit'] = candidate
-                    node_used_exits[src].add(candidate)
-                    port_map[key]['entry'] = _recalc_entry(candidate, key[0], key[1])
-                    break
+    # 旧 V-1 轮转修正已被全局分配替代，不再需要
 
     return port_map
 
@@ -651,18 +752,13 @@ def validate_edge_layout(edges, nodes, node_positions, lane_geometries,
                     f"V-3 标签重叠: \"{l1}\"({f1}→{t1}) 与"
                     f" \"{l2}\"({f2}→{t2}) 坐标过近")
 
-    # ── V-4: 出口方向与目标方向相反 ──
+    # ── V-4: 出口方向与目标方向相反（修正了原阈值 -30 的 bug，改用归一化 cos）──
     for (efrom, eto), ports in port_map.items():
         ex, ey = ports['exit']
         sc = _abs_center(efrom)
         tc = _abs_center(eto)
         dx, dy = tc[0] - sc[0], tc[1] - sc[1]
-        # exit 方向向量
-        evx = ex - 0.5  # >0 朝右, <0 朝左, 0 中间
-        evy = ey - 0.5  # >0 朝下, <0 朝上, 0 中间
-        # 简化点积检查：exit 方向与 target 方向是否大致一致
-        dot = evx * dx + evy * dy
-        if dot < -30:  # 阈值：允许小角度偏差
+        if _is_backward_exit(ex, ey, dx, dy):
             warnings.append(
                 f"V-4 绕路: 边 {efrom}→{eto} 的 exit={ports['exit']}"
                 f" 与目标方向相反 (dx={dx:.0f}, dy={dy:.0f})")
@@ -682,7 +778,19 @@ def compute_layout(data):
       - node_positions: node_id → (rel_x, rel_y, w, h) 相对于所属泳道
       - lane_geometries: lane_id → (abs_x, abs_y, w, h)
       - diagram_info: dict with total_width, total_height
+
+    支持 YAML 顶层 `config:` 字段覆盖布局常数（见模块顶部注释）。
     """
+    # 解析 config 覆盖；未指定的字段用模块默认。下面的 LANE_MIN_WIDTH 等是
+    # 函数局部变量，遮蔽模块级常数（不修改全局，多次调用之间不共享）。
+    _cfg = _resolve_layout_config(data)
+    LANE_MIN_WIDTH       = _cfg['LANE_MIN_WIDTH']
+    LANE_CONTENT_PADDING = _cfg['LANE_CONTENT_PADDING']
+    ROW_HEIGHT           = _cfg['ROW_HEIGHT']
+    NODE_X_GAP           = _cfg['NODE_X_GAP']
+    FLOW_H_SPACING       = _cfg['FLOW_H_SPACING']
+    FLOW_V_SPACING       = _cfg['FLOW_V_SPACING']
+
     dtype = data['diagram'].get('type', 'flow')
     lanes = data.get('lanes', [])
     nodes = data.get('nodes', [])

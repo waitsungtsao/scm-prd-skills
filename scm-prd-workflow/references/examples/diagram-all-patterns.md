@@ -244,7 +244,7 @@ sequenceDiagram
 
 4 泳道（供应商→收货→质检→上架），14 节点，含差异处理和不良品异常路径。
 
-**完整 YAML + Mermaid 示例**：读取 `references/examples/scm-inbound-flow.yaml`
+**完整 YAML + Mermaid 示例**：读取 `references/examples/scm-inbound-flow.diagram.yaml`
 
 **结构要点**：供应商 → 单据核对(决策) → 系统收货 → 质检(决策) → 上架(PDA确认)。差异路径用 `style: error` 标红。
 
@@ -252,7 +252,7 @@ sequenceDiagram
 
 5 泳道（OMS→波次→拣货→复核打包→TMS），17 节点，含缺货和复核差异异常路径。
 
-**完整 YAML + Mermaid 示例**：读取 `references/examples/scm-outbound-flow.yaml`
+**完整 YAML + Mermaid 示例**：读取 `references/examples/scm-outbound-flow.diagram.yaml`
 
 **结构要点**：OMS下发 → 波次规划 → 拣货(缺货决策) → 复核(差异决策) → 打包→称重→集货→交接 → TMS揽收。
 

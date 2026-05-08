@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile>
+  <diagram name="Page-1">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1980">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="10" value="出库主流程" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=0;fontStyle=1;fontSize=16;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="30" y="30" width="1236" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="11" value="OMS 订单系统" style="swimlane;startSize=30;horizontal=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;fontStyle=1;collapsible=0;container=1;swimlaneBody=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="70" width="200" height="1780" as="geometry"/>
+        </mxCell>
+        <mxCell id="12" value="WMS-波次" style="swimlane;startSize=30;horizontal=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;fontStyle=1;collapsible=0;container=1;swimlaneBody=1;" vertex="1" parent="1">
+          <mxGeometry x="230" y="70" width="200" height="1780" as="geometry"/>
+        </mxCell>
+        <mxCell id="13" value="WMS-拣货" style="swimlane;startSize=30;horizontal=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;fontStyle=1;collapsible=0;container=1;swimlaneBody=1;" vertex="1" parent="1">
+          <mxGeometry x="430" y="70" width="318" height="1780" as="geometry"/>
+        </mxCell>
+        <mxCell id="14" value="WMS-复核打包" style="swimlane;startSize=30;horizontal=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;fontStyle=1;collapsible=0;container=1;swimlaneBody=1;" vertex="1" parent="1">
+          <mxGeometry x="748" y="70" width="318" height="1780" as="geometry"/>
+        </mxCell>
+        <mxCell id="15" value="TMS 运输系统" style="swimlane;startSize=30;horizontal=1;fillColor=#ffe6cc;strokeColor=#d6b656;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;fontStyle=1;collapsible=0;container=1;swimlaneBody=1;" vertex="1" parent="1">
+          <mxGeometry x="1066" y="70" width="200" height="1780" as="geometry"/>
+        </mxCell>
+        <mxCell id="16" value="出库指令下发" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="11">
+          <mxGeometry x="40" y="80" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="17" value="接收出库单" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="12">
+          <mxGeometry x="40" y="200" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="18" value="波次规划" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="12">
+          <mxGeometry x="40" y="320" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="19" value="生成拣货任务" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="12">
+          <mxGeometry x="40" y="440" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="20" value="拣货作业" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="13">
+          <mxGeometry x="99" y="560" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="21" value="拣货结果" style="rhombus;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="13">
+          <mxGeometry x="103" y="680" width="112" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="22" value="拣货完成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="13">
+          <mxGeometry x="24" y="800" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="23" value="缺货处理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="13">
+          <mxGeometry x="174" y="800" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="24" value="复核" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="14">
+          <mxGeometry x="99" y="920" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="25" value="复核结果" style="rhombus;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="14">
+          <mxGeometry x="103" y="1040" width="112" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="26" value="打包" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="14">
+          <mxGeometry x="24" y="1160" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="27" value="返回拣货" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="14">
+          <mxGeometry x="174" y="1160" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="28" value="称重/贴面单" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="14">
+          <mxGeometry x="99" y="1280" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="29" value="集货/装车" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="14">
+          <mxGeometry x="99" y="1400" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="30" value="交接签收" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="14">
+          <mxGeometry x="99" y="1520" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="31" value="揽收确认" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d6b656;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=12;" vertex="1" parent="15">
+          <mxGeometry x="40" y="1640" width="120" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="32" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="16" target="17" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="17" target="18" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="34" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="18" target="19" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="35" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="19" target="20" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="36" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="20" target="21" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="37" value="正常" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="21" target="22" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="38" value="缺货" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#b85450;strokeWidth=2;" edge="1" source="21" target="23" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="39" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="22" target="24" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="40" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="24" target="25" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="41" value="一致" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="25" target="26" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="42" value="差异" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#b85450;strokeWidth=2;" edge="1" source="25" target="27" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="43" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="26" target="28" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="44" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="28" target="29" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="45" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="29" target="30" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="46" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;jumpStyle=arc;jumpSize=6;fontFamily=PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="30" target="31" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

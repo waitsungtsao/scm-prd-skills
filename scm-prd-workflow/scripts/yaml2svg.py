@@ -130,8 +130,69 @@ def _get_node_color(node, lane_map=None):
     return DEFAULT_COLOR['fill'], DEFAULT_COLOR['stroke']
 
 
+def _segment_blocked(seg_x_lo, seg_x_hi, seg_y_lo, seg_y_hi,
+                     all_bboxes, exclude_ids, margin=8, is_horizontal=False):
+    """检查一条轴对齐线段是否穿入任意节点 bbox（排除端点节点）。"""
+    for nid, (bx, by, bw, bh) in all_bboxes.items():
+        if nid in exclude_ids:
+            continue
+        # 节点 bbox 加 margin 安全区
+        bx1, by1 = bx + margin, by + margin
+        bx2, by2 = bx + bw - margin, by + bh - margin
+        if is_horizontal:
+            # 水平线段 (seg_x_lo .. seg_x_hi, seg_y)
+            if seg_y_lo == seg_y_hi:
+                y = seg_y_lo
+                if by1 < y < by2 and seg_x_lo < bx2 and seg_x_hi > bx1:
+                    return True
+        else:
+            # 垂直线段 (seg_x, seg_y_lo .. seg_y_hi)
+            if seg_x_lo == seg_x_hi:
+                x = seg_x_lo
+                if bx1 < x < bx2 and seg_y_lo < by2 and seg_y_hi > by1:
+                    return True
+    return False
+
+
+def _safe_mid_x(x1, x2, y1, y2, all_bboxes, exclude_ids):
+    """选一个不穿入任何节点投影 x 范围的 mid_x（用于垂直 Z 折线的中段水平位置）。
+
+    搜索策略：默认 (x1+x2)/2，向两侧 ±10 步长扫描，最多 ±100 px。
+    SAMPLE-SPECIFIC: ±10 步长和 ±100 范围适合泳道宽度 200-300 px 的图；
+    若用户用更大泳道（>500 px），步长应放大避免漏过合法位置。
+    """
+    base = int(round((x1 + x2) / 2))
+    candidates = [base]
+    for k in range(1, 11):
+        candidates.append(base + k * 10)
+        candidates.append(base - k * 10)
+    seg_y_lo, seg_y_hi = min(y1, y2), max(y1, y2)
+    for mx in candidates:
+        # mx 上的两段垂直线 (x1,y1)→(mx,...) 不需要避，因为是水平段在 mid_y 上
+        # 这里检查作为"垂直中段"的 mx 列是否撞节点
+        if not _segment_blocked(mx, mx, seg_y_lo, seg_y_hi,
+                                all_bboxes, exclude_ids):
+            return mx
+    return base
+
+
+def _safe_mid_y(y1, y2, x1, x2, all_bboxes, exclude_ids):
+    """选一个不穿入任何节点投影 y 范围的 mid_y（用于水平 Z 折线的中段垂直位置）。"""
+    base = int(round((y1 + y2) / 2))
+    candidates = [base]
+    for k in range(1, 11):
+        candidates.append(base + k * 10)
+        candidates.append(base - k * 10)
+    seg_x_lo, seg_x_hi = min(x1, x2), max(x1, x2)
+    for my in candidates:
+        if not _segment_blocked(seg_x_lo, seg_x_hi, my, my,
+                                all_bboxes, exclude_ids, is_horizontal=True):
+            return my
+    return base
+
+
 def _svg_edge(edge, node_positions, lane_geometries, node_map, lane_map,
-              port_info=None):
+              port_info=None, all_bboxes=None):
     """渲染单条连线为 SVG 折线（端口感知）。"""
     efrom, eto = edge['from'], edge['to']
     if efrom not in node_positions or eto not in node_positions:
@@ -158,42 +219,69 @@ def _svg_edge(edge, node_positions, lane_geometries, node_map, lane_map,
         ex, ey = 0.5, 1   # 默认：底部出
         nx, ny = 0.5, 0   # 默认：顶部入
 
-    x1 = s_ax + sw * ex
-    y1 = s_ay + sh * ey
-    x2 = t_ax + tw * nx
-    y2 = t_ay + th * ny
+    # 端口坐标取整，消除 0.5 浮点偏移
+    x1 = int(round(s_ax + sw * ex))
+    y1 = int(round(s_ay + sh * ey))
+    x2 = int(round(t_ax + tw * nx))
+    y2 = int(round(t_ay + th * ny))
 
-    # 正交折线路由（根据 exit/entry 方向选择路径）
-    if ey == 1:          # exit BOTTOM
-        if ny == 0:      # entry TOP → 垂直 Z 折线
-            mid_y = (y1 + y2) / 2
-            points = f"{x1},{y1} {x1},{mid_y} {x2},{mid_y} {x2},{y2}"
-        elif nx == 0:    # entry LEFT → 下拐右
+    # 端口属性判断（支持 fractional port，例 (0.3, 1) 仍是 BOTTOM）
+    exit_is_bottom = (ey == 1)
+    exit_is_top    = (ey == 0)
+    exit_is_right  = (ex == 1)
+    exit_is_left   = (ex == 0)
+    entry_is_top    = (ny == 0)
+    entry_is_bottom = (ny == 1)
+    entry_is_left   = (nx == 0)
+    entry_is_right  = (nx == 1)
+
+    def _mid(a, b):
+        return int(round((a + b) / 2))
+
+    # all_bboxes 缺失时降级到普通 mid（保持向后兼容）
+    bboxes = all_bboxes if all_bboxes is not None else {}
+    # 不排除任何节点：路径起点 / 终点恰好在 efrom / eto 边界上是允许的，
+    # 但中间折点（垂直段）穿过 efrom 或 eto 内部都不允许（视觉上线被节点 fill 遮住）
+    exclude = ()
+
+    # 正交折线路由（根据 exit/entry 方向选择路径，mid 点支持避障）
+    if exit_is_bottom:
+        if entry_is_top:
+            # 垂直 Z 折线：mid_y 钳位避免折点贴节点；过近退化为单段
+            if abs(y2 - y1) < 50:
+                points = f"{x1},{y1} {x1},{y2} {x2},{y2}"
+            else:
+                # 先用避障搜索；再钳到 [y1+25, y2-25] 区间内
+                base_my = _safe_mid_y(y1, y2, x1, x2, bboxes, exclude)
+                mid_y = max(y1 + 25, min(y2 - 25, base_my))
+                points = f"{x1},{y1} {x1},{mid_y} {x2},{mid_y} {x2},{y2}"
+        elif entry_is_left or entry_is_right:
             points = f"{x1},{y1} {x1},{y2} {x2},{y2}"
-        elif nx == 1:    # entry RIGHT → 下拐左
-            points = f"{x1},{y1} {x1},{y2} {x2},{y2}"
-        else:            # entry BOTTOM（罕见）
+        else:  # entry BOTTOM（罕见）
             mid_y = max(y1, y2) + 30
             points = f"{x1},{y1} {x1},{mid_y} {x2},{mid_y} {x2},{y2}"
-    elif ex == 1:        # exit RIGHT
-        if nx == 0:      # entry LEFT → 右行 Z 折线
-            mid_x = (x1 + x2) / 2
+    elif exit_is_right:
+        if entry_is_left:
+            mid_x = _safe_mid_x(x1, x2, y1, y2, bboxes, exclude)
             points = f"{x1},{y1} {mid_x},{y1} {mid_x},{y2} {x2},{y2}"
-        elif ny == 0:    # entry TOP → ⌐ 折线（右→下→入）
-            mid_x = max(x1 + 30, (x1 + x2) / 2)
-            points = f"{x1},{y1} {mid_x},{y1} {mid_x},{y2} {x2},{y2}"
+        elif entry_is_top:
+            # entry TOP 要求最后段必须垂直入节点顶部（否则箭头方向错乱：
+            # 4 点 Z 折线最后段水平，箭头朝右插进节点侧面）
+            # 改用 3 点路径：(x1,y1) → (x2,y1) → (x2,y2)
+            # 第二段水平到目标 x，第三段垂直入 TOP
+            points = f"{x1},{y1} {x2},{y1} {x2},{y2}"
         else:
             points = f"{x1},{y1} {x2},{y1} {x2},{y2}"
-    elif ex == 0:        # exit LEFT
-        if nx == 1:      # entry RIGHT → 左行 Z 折线
-            mid_x = (x1 + x2) / 2
+    elif exit_is_left:
+        if entry_is_right:
+            mid_x = _safe_mid_x(x1, x2, y1, y2, bboxes, exclude)
             points = f"{x1},{y1} {mid_x},{y1} {mid_x},{y2} {x2},{y2}"
-        elif ny == 0:    # entry TOP
-            mid_x = min(x1 - 30, (x1 + x2) / 2)
-            points = f"{x1},{y1} {mid_x},{y1} {mid_x},{y2} {x2},{y2}"
+        elif entry_is_top:
+            # 同 RIGHT→TOP：3 点路径让最后段垂直入 TOP
+            points = f"{x1},{y1} {x2},{y1} {x2},{y2}"
         else:
             points = f"{x1},{y1} {x2},{y1} {x2},{y2}"
-    else:                # exit TOP（回退边）
+    else:  # exit TOP（回退边）
         mid_y = min(y1, y2) - 30
         points = f"{x1},{y1} {x1},{mid_y} {x2},{mid_y} {x2},{y2}"
 
@@ -297,6 +385,16 @@ def generate_svg(data, node_positions, lane_geometries, diagram_info):
                          f'font-family="{FONT_FAMILY}" font-size="{FONT_SIZE}" '
                          f'font-weight="bold" fill="#333">{escape(lane["label"])}</text>')
 
+    # 计算所有节点的绝对 bbox，用于边路由的避障
+    all_bboxes = {}
+    for nid, (rx, ry, nw, nh) in node_positions.items():
+        node = node_map.get(nid, {})
+        lane_id = node.get('lane')
+        ox, oy = 0, 0
+        if lane_id and lane_id in lane_geometries:
+            ox, oy = lane_geometries[lane_id][0], lane_geometries[lane_id][1]
+        all_bboxes[nid] = (ox + rx, oy + ry, nw, nh)
+
     # 连线（先画，节点覆盖在上面）
     port_map = compute_edge_ports(
         edges, nodes, node_positions, lane_geometries,
@@ -305,7 +403,7 @@ def generate_svg(data, node_positions, lane_geometries, diagram_info):
     for edge in edges:
         ports = port_map.get((edge['from'], edge['to']))
         svg = _svg_edge(edge, node_positions, lane_geometries, node_map, lane_map,
-                        port_info=ports)
+                        port_info=ports, all_bboxes=all_bboxes)
         if svg:
             lines.append(svg)
 

@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="634" viewBox="0 0 1180 634">
+<rect width="1180" height="634" fill="white"/>
+<defs>
+  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+  </marker>
+</defs>
+<text x="590.0" y="50.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="16" font-weight="bold" fill="#333">电商订单核心数据模型</text>
+<polyline points="310,191.0 280.0,191.0 280.0,167.0 250,167.0" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="280.0" y="171.0" text-anchor="middle" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#666">下单</text>
+<text x="295" y="183.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">*</text>
+<text x="255" y="159.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">1</text>
+<polyline points="310,191.0 280.0,191.0 280.0,409.0 250,409.0" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="280.0" y="292.0" text-anchor="middle" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#666">收货至</text>
+<text x="295" y="183.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">*</text>
+<text x="255" y="401.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">1</text>
+<polyline points="590,179.0 560.0,179.0 560.0,191.0 530,191.0" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="560.0" y="177.0" text-anchor="middle" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#666">属于</text>
+<text x="575" y="171.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">*</text>
+<text x="535" y="183.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">1</text>
+<polyline points="810,179.0 840.0,179.0 840.0,167.0 870,167.0" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="840.0" y="165.0" text-anchor="middle" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#666">包含商品</text>
+<text x="815" y="171.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">*</text>
+<text x="855" y="159.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">1</text>
+<polyline points="30,409.0 140.0,409.0 140.0,167.0 250,167.0" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="140.0" y="280.0" text-anchor="middle" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#666">归属</text>
+<text x="35" y="401.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">*</text>
+<text x="235" y="159.0" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">1</text>
+<rect x="30" y="100" width="220" height="134" fill="white" stroke="#6c8ebf" stroke-width="1.5" rx="4"/>
+<rect x="30" y="100" width="220" height="30" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.5" rx="4"/>
+<rect x="30" y="126" width="220" height="4" fill="#dae8fc" stroke="none"/>
+<line x1="30" y1="130" x2="250" y2="130" stroke="#6c8ebf" stroke-width="1.5"/>
+<text x="140.0" y="115.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">用户 USER</text>
+<text x="38" y="146.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">PK id : BIGINT</text>
+<text x="242" y="146.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">主键</text>
+<text x="38" y="170.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">email : VARCHAR(120)</text>
+<text x="242" y="170.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">登录邮箱（唯一）</text>
+<text x="38" y="194.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">phone : VARCHAR(20)</text>
+<text x="242" y="194.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">联系电话</text>
+<text x="38" y="218.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">created_at : TIMESTAMP</text>
+<text x="242" y="218.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">注册时间</text>
+<rect x="310" y="100" width="220" height="182" fill="white" stroke="#82b366" stroke-width="1.5" rx="4"/>
+<rect x="310" y="100" width="220" height="30" fill="#d5e8d4" stroke="#82b366" stroke-width="1.5" rx="4"/>
+<rect x="310" y="126" width="220" height="4" fill="#d5e8d4" stroke="none"/>
+<line x1="310" y1="130" x2="530" y2="130" stroke="#82b366" stroke-width="1.5"/>
+<text x="420.0" y="115.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">订单 ORDER</text>
+<text x="318" y="146.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">PK id : BIGINT</text>
+<text x="522" y="146.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">主键</text>
+<text x="318" y="170.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">order_no : VARCHAR(32)</text>
+<text x="522" y="170.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">订单号（业务唯一）</text>
+<text x="318" y="194.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">FK user_id : BIGINT</text>
+<text x="522" y="194.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">下单用户</text>
+<text x="318" y="218.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">FK address_id : BIGINT</text>
+<text x="522" y="218.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">收货地址</text>
+<text x="318" y="242.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">status : VARCHAR(20)</text>
+<text x="522" y="242.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">订单状态</text>
+<text x="318" y="266.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">total_amount : DECIMAL(12,2)</text>
+<text x="522" y="266.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">订单金额</text>
+<rect x="590" y="100" width="220" height="158" fill="white" stroke="#82b366" stroke-width="1.5" rx="4"/>
+<rect x="590" y="100" width="220" height="30" fill="#d5e8d4" stroke="#82b366" stroke-width="1.5" rx="4"/>
+<rect x="590" y="126" width="220" height="4" fill="#d5e8d4" stroke="none"/>
+<line x1="590" y1="130" x2="810" y2="130" stroke="#82b366" stroke-width="1.5"/>
+<text x="700.0" y="115.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">订单项 ORDER_ITEM</text>
+<text x="598" y="146.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">PK id : BIGINT</text>
+<text x="802" y="146.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">主键</text>
+<text x="598" y="170.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">FK order_id : BIGINT</text>
+<text x="802" y="170.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">所属订单</text>
+<text x="598" y="194.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">FK product_id : BIGINT</text>
+<text x="802" y="194.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">商品</text>
+<text x="598" y="218.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">quantity : INT</text>
+<text x="802" y="218.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">数量</text>
+<text x="598" y="242.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">unit_price : DECIMAL(10,2)</text>
+<text x="802" y="242.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">下单时单价</text>
+<rect x="870" y="100" width="220" height="134" fill="white" stroke="#d6b656" stroke-width="1.5" rx="4"/>
+<rect x="870" y="100" width="220" height="30" fill="#ffe6cc" stroke="#d6b656" stroke-width="1.5" rx="4"/>
+<rect x="870" y="126" width="220" height="4" fill="#ffe6cc" stroke="none"/>
+<line x1="870" y1="130" x2="1090" y2="130" stroke="#d6b656" stroke-width="1.5"/>
+<text x="980.0" y="115.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">商品 PRODUCT</text>
+<text x="878" y="146.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">PK id : BIGINT</text>
+<text x="1082" y="146.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">主键</text>
+<text x="878" y="170.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">sku : VARCHAR(40)</text>
+<text x="1082" y="170.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">SKU 编码</text>
+<text x="878" y="194.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">name : VARCHAR(200)</text>
+<text x="1082" y="194.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">商品名</text>
+<text x="878" y="218.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">price : DECIMAL(10,2)</text>
+<text x="1082" y="218.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">当前售价</text>
+<rect x="30" y="342" width="220" height="134" fill="white" stroke="#9673a6" stroke-width="1.5" rx="4"/>
+<rect x="30" y="342" width="220" height="30" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.5" rx="4"/>
+<rect x="30" y="368" width="220" height="4" fill="#e1d5e7" stroke="none"/>
+<line x1="30" y1="372" x2="250" y2="372" stroke="#9673a6" stroke-width="1.5"/>
+<text x="140.0" y="357.0" text-anchor="middle" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="12" font-weight="bold" fill="#333">收货地址 ADDRESS</text>
+<text x="38" y="388.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">PK id : BIGINT</text>
+<text x="242" y="388.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">主键</text>
+<text x="38" y="412.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">FK user_id : BIGINT</text>
+<text x="242" y="412.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">所属用户</text>
+<text x="38" y="436.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">receiver : VARCHAR(50)</text>
+<text x="242" y="436.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">收件人</text>
+<text x="38" y="460.0" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="11" fill="#333">detail : VARCHAR(255)</text>
+<text x="242" y="460.0" text-anchor="end" dominant-baseline="central" font-family="PingFang SC, Source Han Sans, Heiti SC, sans-serif" font-size="10" fill="#999">详细地址</text>
+</svg>

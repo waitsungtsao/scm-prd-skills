@@ -167,7 +167,7 @@ Session 状态（`.session-state.yaml`）字段：`mode`、`stage`、`step`、`r
    - 如 `.session-state.yaml` 存在 → 读取精确的阶段/步骤/pending 操作，告知用户上次中断位置，询问是否继续
    - 如 `.session-state.yaml` 不存在 → 按文件存在性推断：
      - 存在 `intake.md` 但没有 PRD → 中断于录入阶段
-     - 存在 PRD 文件但章节数不足（自主模式 <10 章、轻量模式 <7 章）→ 中断于撰写阶段
+     - 存在 PRD 文件但章节数不足（自主模式 <10 章、轻量模式 <3 章）→ 中断于撰写阶段
      - 存在 PRD 但没有 `review-report.md`（自主模式）→ 中断于自检阶段
    - 存在已完成的 PRD（有 `review-report.md` 且章节数达标）→ 提供修订入口（见下方"修订入口"章节）
 4. **读取约束索引**：检查 `requirements/_constraints-index.yaml` 是否存在：
@@ -408,6 +408,8 @@ PRD 中以 ID 标记（F-XXX/IF-XXX/G-XX/C-XX）开头的 `####` 级标题在 Wo
 | 状态流转、时序、数据流、简单流程（≤12节点） | Mermaid |
 | ER关系图 | Mermaid（≤5实体）/ YAML → draw.io（>5实体） |
 
+**图表深入阅读**：YAML 语法见 `references/diagram-yaml-schema.md`；图表选型与拆图判断见 `references/diagram-patterns.md`；引擎能力边界、参数化配置与拆图信号见 `references/layout-philosophy.md`；渲染降级与几何校验见 `references/diagram-fallback.md`。
+
 **图表规划（PRD 大纲阶段）**：
 
 1. **全局决策**：列出 PRD 中所有候选图表，对每张过成本收益判断（详见 `references/diagram-patterns.md` "图表成本收益"），砍掉不必要的，确定最终图表清单
@@ -424,7 +426,7 @@ PRD 中以 ID 标记（F-XXX/IF-XXX/G-XX/C-XX）开头的 `####` 级标题在 Wo
 1. **ENV-01（启动时）**：环境检测发现 Python 不可用时，在状态摘要中列出影响（"复杂泳道图将降级为 Mermaid"），让用户有机会在 Stage A 对话期间提前安装
 2. **Stage B 叙事规划（撰写前）**：如叙事规划包含需要 Python 的图表且仍不可用，再次提醒并提供选项（安装/降级为 Mermaid/跳过）
 
-完整降级流程详见 `references/env-setup.md` "缺失依赖的影响说明"和 `references/diagram-patterns.md` "draw.io 生成降级策略"章节。核心原则：**绝不因图表问题阻断 PRD 输出**。
+完整降级流程详见 `references/env-setup.md` "缺失依赖的影响说明"、`references/diagram-fallback.md`（图表层面的降级与几何校验）。核心原则：**绝不因图表问题阻断 PRD 输出**。
 
 ### 图表质量校验
 

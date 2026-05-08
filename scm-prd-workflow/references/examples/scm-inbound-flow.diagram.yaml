@@ -78,6 +78,10 @@ nodes:
     label: "PDA确认"
     type: process
     lane: wms_putaway
+  - id: e_resend
+    label: "通知供应商补发"
+    type: end
+    lane: supplier
 
 edges:
   - from: s1
@@ -94,8 +98,9 @@ edges:
   - from: w3
     to: w4
   - from: w4
-    to: s1
+    to: e_resend
     label: "补发"
+    style: async
   - from: w4
     to: w2
     label: "按实收"

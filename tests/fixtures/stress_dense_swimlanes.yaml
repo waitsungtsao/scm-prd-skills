@@ -1,0 +1,100 @@
+# 压力测试：5 泳道 + 跨泳道交叉 ≥6 条 + 多决策节点
+# 目的：验证密集场景下 mid-point 避障 + 全局端口分配仍工作
+# 期望：无 V-2 穿越告警；段重叠 ≤1 处
+
+diagram:
+  title: "密集泳道压力测试"
+  type: swimlane
+
+lanes:
+  - id: l1
+    label: "系统 1"
+    color: blue
+  - id: l2
+    label: "系统 2"
+    color: green
+  - id: l3
+    label: "系统 3"
+    color: orange
+  - id: l4
+    label: "系统 4"
+    color: purple
+  - id: l5
+    label: "系统 5"
+
+nodes:
+  - id: a1
+    label: "S1 接收"
+    type: start
+    lane: l1
+  - id: a2
+    label: "S2 处理"
+    type: process
+    lane: l2
+  - id: a3
+    label: "S2 校验"
+    type: decision
+    lane: l2
+  - id: b1
+    label: "S3 入库"
+    type: process
+    lane: l3
+  - id: b2
+    label: "S3 异常处理"
+    type: process
+    lane: l3
+    style: error
+  - id: c1
+    label: "S4 通知"
+    type: process
+    lane: l4
+  - id: c2
+    label: "S4 复核"
+    type: decision
+    lane: l4
+  - id: d1
+    label: "S5 写账"
+    type: process
+    lane: l5
+  - id: d2
+    label: "S5 终止"
+    type: end
+    lane: l5
+  - id: rollback
+    label: "S1 回滚"
+    type: process
+    lane: l1
+    style: error
+
+edges:
+  - from: a1
+    to: a2
+  - from: a2
+    to: a3
+  - from: a3
+    to: b1
+    label: "通过"
+  - from: a3
+    to: rollback
+    label: "失败"
+    style: error
+  - from: b1
+    to: c1
+  - from: b1
+    to: b2
+    label: "异常"
+    style: async
+  - from: b2
+    to: rollback
+    style: error
+  - from: c1
+    to: c2
+  - from: c2
+    to: d1
+    label: "通过"
+  - from: c2
+    to: b2
+    label: "差异"
+    style: error
+  - from: d1
+    to: d2

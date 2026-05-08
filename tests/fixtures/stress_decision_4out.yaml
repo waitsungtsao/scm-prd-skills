@@ -1,0 +1,60 @@
+# 压力测试：单决策节点 4 条出边（覆盖 4 个方向）
+# 目的：验证全局端口分配是否能让 4 出边各自走 4 个不同端口
+# 期望：决策节点 check 的 4 条出边分别走 BOTTOM/RIGHT/LEFT/TOP（或 fractional 偏移）
+
+diagram:
+  title: "决策 4 出边压力测试"
+  type: swimlane
+
+lanes:
+  - id: a
+    label: "左"
+    color: blue
+  - id: b
+    label: "中"
+    color: green
+  - id: c
+    label: "右"
+    color: orange
+
+nodes:
+  - id: start
+    label: "开始"
+    type: start
+    lane: b
+  - id: check
+    label: "多路判断"
+    type: decision
+    lane: b
+  - id: out_down
+    label: "下方继续"
+    type: process
+    lane: b
+  - id: out_right
+    label: "右侧支线"
+    type: process
+    lane: c
+  - id: out_left
+    label: "左侧支线"
+    type: process
+    lane: a
+  - id: out_up_target
+    label: "回退点（在中间偏上）"
+    type: process
+    lane: b
+
+edges:
+  - from: start
+    to: out_up_target
+  - from: out_up_target
+    to: check
+  - from: check
+    to: out_down
+    label: "下"
+  - from: check
+    to: out_right
+    label: "右"
+  - from: check
+    to: out_left
+    label: "左"
+    style: error
