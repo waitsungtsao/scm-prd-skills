@@ -99,8 +99,8 @@ function detectFeatType(text) {
 }
 
 // ── IMAGE HELPERS ──
-const EMU_PER_INCH = 914400;
-const IMAGE_MAX_WIDTH = 6 * EMU_PER_INCH; // 6 inches, matching Python version
+// docx 库的 ImageRun.transformation 期望像素，内部按 96 DPI 乘 9525 转 EMU
+const IMAGE_MAX_WIDTH_PX = 576; // 6 inches @ 96 DPI
 
 /** 解析图片路径：原路径 → .drawio/.svg/.mermaid 同名 .png → diagrams/ 子目录 */
 function resolveImagePath(rawSrc, mdDir) {
@@ -127,6 +127,20 @@ function readPngSize(buf) {
   }
   return null;
 }
+
+/** 从 magic bytes 识别图片类型，未知返回 null（docx 库要求显式 type） */
+function detectImageType(buf) {
+  if (buf.length < 4) return null;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "png";
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return "gif";
+  if (buf[0] === 0x42 && buf[1] === 0x4d) return "bmp";
+  return null;
+}
+
+// docx@9.6.1 的 wp:docPr id 自动递增有 bug（每个 DocProperties 实例都新建计数器），
+// 显式传 id 覆盖。1 起跳，避免与 Word 内部保留 id 冲突。
+let _imageDocPrIdCounter = 0;
 
 // ── SHARED PRIMITIVES ──
 const thinBorder = { style: BorderStyle.SINGLE, size: 1, color: C.borderGray };
@@ -701,11 +715,20 @@ function buildDoc(mdPath) {
         if (resolved) {
           try {
             const imgBuf = fs.readFileSync(resolved);
+            const imgType = detectImageType(imgBuf);
+            if (!imgType) throw new Error(`不支持的图片格式（仅支持 PNG/JPG/GIF/BMP）`);
             const dims = readPngSize(imgBuf);
-            let w = IMAGE_MAX_WIDTH, h = Math.round(IMAGE_MAX_WIDTH * 0.6);
-            if (dims && dims.w > 0) { const s = IMAGE_MAX_WIDTH / dims.w; w = IMAGE_MAX_WIDTH; h = Math.round(dims.h * s); }
+            let w = IMAGE_MAX_WIDTH_PX, h = Math.round(IMAGE_MAX_WIDTH_PX * 0.6);
+            if (dims && dims.w > 0) { const s = IMAGE_MAX_WIDTH_PX / dims.w; w = IMAGE_MAX_WIDTH_PX; h = Math.round(dims.h * s); }
+            const docPrId = String(++_imageDocPrIdCounter);
+            const altLabel = el.alt || `Image ${docPrId}`;
             content.push(para(
-              new ImageRun({ data: imgBuf, transformation: { width: w, height: h }, altText: { title: el.alt || "", description: el.alt || "" } }),
+              new ImageRun({
+                data: imgBuf,
+                type: imgType,
+                transformation: { width: w, height: h },
+                altText: { id: docPrId, name: altLabel, title: altLabel, description: altLabel },
+              }),
               { alignment: AlignmentType.CENTER, spacing: { before: 120, after: 60 } }
             ));
             if (el.alt) {

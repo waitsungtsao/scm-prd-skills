@@ -4,6 +4,21 @@
 
 版本号采用 [CalVer](https://calver.org/)（`YYYY.MM.PATCH`）。
 
+## [2026.05.1] - 2026-05-08
+
+从 md-to-docx 仓库回传图片渲染 bug 修复（commit 98d316a）。
+
+### Fixed
+
+- **`md2docx.mjs` 图片渲染三连 bug**：修复后 Word 不再触发"正在修复"
+  - 单位混用：`ImageRun.transformation` 期望像素，原代码传 EMU，被 docx 库再乘 9525 → `cx` 飙到 5.2×10¹⁰；改为 `IMAGE_MAX_WIDTH_PX = 576`（6 inch @ 96 DPI）
+  - `type` 缺失：媒体文件名写成 `image1.undefined`；新增 `detectImageType()` 从 magic bytes 识别 PNG/JPG/GIF/BMP，显式传给 `ImageRun`
+  - `docPr id` 冲突：docx@9.6.1 库 bug 导致所有图片 id 全为 1；新增 `_imageDocPrIdCounter` 显式递增
+
+### Added
+
+- **`tests/test_md2docx.py` 图片回归测试**：`TestImageRendering` 新增 3 个测试覆盖上述 bug（媒体扩展名 / EMU 范围 / docPr id 唯一性）
+
 ## [2026.05.0] - 2026-05-08
 
 从两个独立 skill（md-to-docx、flow-architect）反向同步改进回 PRD skill：Word 生成补 4 个 Markdown 特性；图表引擎升级 + 设计原则文档化。
